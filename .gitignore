@@ -1,0 +1,58 @@
+# Build artifacts
+/build/
+/CMakeFiles/
+/CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Visual Studio files
+*.sln
+*.vcxproj*
+*.vcxproj.user
+*.vcxproj.filters
+*.opensdf
+*.sdf
+*.cache
+*.log
+
+# Compiled binaries
+*.exe
+*.out
+*.app
+*.dll
+*.lib
+*.so
+*.a
+*.pdb
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Editor-specific
+.vscode/
+.idea/
+*.code-workspace
+
+# Generated docs
+/docs/html/
+*.doxygen
+
+# Misc
+*.obj
+*.o
+*.mod
+*.pch
+*.idb
+*.ipch
+
+# Test/coverage artifacts
+*.gcno
+*.gcda
+*.gcov
+*.lcov
+
+# VCPKG/Conan caches
+.vcpkg_installed/
+conanbuildinfo.*
+conaninfo.txt
