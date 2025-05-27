@@ -19,3 +19,6 @@
 [submodule "third_party/visage"]
 	path = third_party/visage
 	url = https://github.com/VitalAudio/visage.git
+[submodule "third_party/third_party/zlib"]
+	path = third_party/third_party/zlib
+	url = https://github.com/madler/zlib.git
