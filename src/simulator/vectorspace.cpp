@@ -16,12 +16,6 @@ VectorSpace::VectorSpace(size_t x, size_t y, size_t z, float h) : h(h) {
 	grid.p_next = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
 	grid.p_prev = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
 	grid.p_temp = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
-	grid.vx_curr = static_cast<_Float16*>(aligned_alloc(ALIGN, sizeof(_Float16) * grid.size));
-	grid.vy_curr = static_cast<_Float16*>(aligned_alloc(ALIGN, sizeof(_Float16) * grid.size));
-	grid.vz_curr = static_cast<_Float16*>(aligned_alloc(ALIGN, sizeof(_Float16) * grid.size));
-	grid.vx_next = static_cast<_Float16*>(aligned_alloc(ALIGN, sizeof(_Float16) * grid.size));
-	grid.vy_next = static_cast<_Float16*>(aligned_alloc(ALIGN, sizeof(_Float16) * grid.size));
-	grid.vz_next = static_cast<_Float16*>(aligned_alloc(ALIGN, sizeof(_Float16) * grid.size));
 	grid.flags = static_cast<uint8_t*>(aligned_alloc(ALIGN, sizeof(uint8_t) * grid.size));
 	
 	std::cout << "Initializing VectorSpace with dimensions: "
@@ -33,12 +27,6 @@ VectorSpace::VectorSpace(size_t x, size_t y, size_t z, float h) : h(h) {
 		grid.p_next[i] = 0.0f;
 		grid.p_prev[i] = 0.0f;
 		grid.p_temp[i] = 0.0f;
-		grid.vx_curr[i] = _Float16(0.0f);
-		grid.vy_curr[i] = _Float16(0.0f);
-		grid.vz_curr[i] = _Float16(0.0f);
-		grid.vx_next[i] = _Float16(0.0f);
-		grid.vy_next[i] = _Float16(0.0f);
-		grid.vz_next[i] = _Float16(0.0f);
 		grid.flags[i] = 0; // Initialize flags to zero
 	}
 	resetStopwatch();

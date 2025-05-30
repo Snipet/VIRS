@@ -49,9 +49,6 @@ struct Grid
 	float *p_prev;
 	float *p_temp;
 
-	_Float16 *vx_curr, *vy_curr, *vz_curr;
-	_Float16 *vx_next, *vy_next, *vz_next;
-
 	uint8_t *flags;
 
 	std::size_t Nx;
