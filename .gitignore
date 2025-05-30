@@ -42,7 +42,6 @@ Thumbs.db
 *.doxygen
 
 # Misc
-*.obj
 *.o
 *.mod
 *.pch
