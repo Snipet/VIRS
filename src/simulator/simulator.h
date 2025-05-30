@@ -9,7 +9,6 @@
 #include <iostream>
 #include <cstring>
 
-
 struct BoundingBox {
     Vec3f min;
     Vec3f max;
