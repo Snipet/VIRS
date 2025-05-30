@@ -36,12 +36,6 @@ VectorSpace::VectorSpace(size_t x, size_t y, size_t z, float h) : h(h) {
 VectorSpace::~VectorSpace() {
 	delete[] grid.p_curr;
 	delete[] grid.p_next;
-	delete[] grid.vx_curr;
-	delete[] grid.vy_curr;
-	delete[] grid.vz_curr;
-	delete[] grid.vx_next;
-	delete[] grid.vy_next;
-	delete[] grid.vz_next;
 	delete[] grid.flags;
 }
 
@@ -49,7 +43,6 @@ VectorSpace::~VectorSpace() {
 float VectorSpace::getMemoryUsageGB() {
 	return (
 		sizeof(float) * grid.size * 4 +
-		sizeof(_Float16) * 3 * grid.size +
 		sizeof(uint8_t) * grid.size
 	) / (1000.f * 1000.f * 1000.f);
 }
