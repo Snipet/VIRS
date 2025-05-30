@@ -270,6 +270,7 @@ void Simulator::loadObj(const std::string& path) {
             if(triangleBoxOverlap3(gv0,gv1,gv2, boxMin,boxMax)){
                 size_t idx = grid.idx(i, j, k);
                 grid.flags[idx] = 1; // Mark the cell as occupied
+                grid.p_absorb[idx] = 0.97f;
             }
         }
     
@@ -566,6 +567,13 @@ void Simulator::simulate(size_t steps)
     size_t centerx = grid.Nx / 2;
     size_t centery = grid.Ny / 2;
     size_t centerz = grid.Nz / 2;
+    float c = 343.f; // Speed of sound in m/s
+    float h = vector_box_size; // Size of the grid cell in meters
+    float dt = 0.5f * h / (c * std::sqrt(3.f));
+    float c2_dt2 = c * c * dt * dt;
+    float gdt = 5.f * dt;
+    float inv_h2 = 1.f / (h * h);
+    std::cout << "Simulation parameters: c = " << c << " m/s, h = " << h << " m, dt = " << dt << " s, c2_dt2 = " << c2_dt2 << ", gdt = " << gdt << ", inv_h2 = " << inv_h2 << std::endl;
 
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << "Starting simulation with " << steps << " steps..." << std::endl;
@@ -591,18 +599,21 @@ void Simulator::simulate(size_t steps)
         // if(i % 2 == 0){
         //     int frame = i / 2;
         //     if(frame < 10) {
-        //     file_out += "0000" + std::to_string(frame) + ".png";
+        //     file_out += "00000" + std::to_string(frame) + ".png";
         //     } else if (frame < 100) {
-        //         file_out += "000" + std::to_string(frame) + ".png";
+        //         file_out += "0000" + std::to_string(frame) + ".png";
         //     } else if (frame < 1000) {
-        //         file_out += "00" + std::to_string(frame) + ".png";
+        //         file_out += "000" + std::to_string(frame) + ".png";
         //     } else if (frame < 10000) {
+        //         file_out += "00" + std::to_string(frame) + ".png";
+        //     } else if (frame < 100000) {
         //         file_out += "0" + std::to_string(frame) + ".png";
         //     } else {
         //         file_out += std::to_string(frame) + ".png";
         //     }
-        // //vector_space->layerToImage(file_out, output_layer);
-        // renderImageToFile({7.f, 7.f, 7.f}, file_out, true);
+        // updateCurrentGridFromGPU(vector_space.get());    
+        // vector_space->layerToImage(file_out, output_layer);
+        //renderImageToFile({7.f, 7.f, 7.f}, file_out, true);
         //}
     }
     //initPressureSphere(vector_space.get(), centerx, centery, centerz, 100, 1.f, true);

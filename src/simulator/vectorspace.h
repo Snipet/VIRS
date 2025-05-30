@@ -57,6 +57,10 @@ struct Grid
 	uint8_t *flags;
 	uint8_t *d_flags;
 
+	float *p_absorb;
+	float *d_p_absorb;
+
+
 	std::size_t Nx;
 	std::size_t Ny;
 	std::size_t Nz;

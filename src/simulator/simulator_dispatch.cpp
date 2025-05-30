@@ -29,7 +29,7 @@ void fdtd_step(VectorSpace* space) {
 
 void updateAllGridFromGPU(VectorSpace* space) {
     #ifdef VIRS_WITH_CUDA
-    std::cout << "Updating all grid data from GPU to CPU." << std::endl;
+    //std::cout << "Updating all grid data from GPU to CPU." << std::endl;
     cudaMemcpy(space->getGrid().p_curr, space->getGrid().d_p_curr, sizeof(float) * space->getGrid().size, cudaMemcpyDeviceToHost);
     cudaMemcpy(space->getGrid().p_next, space->getGrid().d_p_next, sizeof(float) * space->getGrid().size, cudaMemcpyDeviceToHost);
     cudaMemcpy(space->getGrid().p_prev, space->getGrid().d_p_prev, sizeof(float) * space->getGrid().size, cudaMemcpyDeviceToHost);
@@ -40,7 +40,7 @@ void updateAllGridFromGPU(VectorSpace* space) {
 
 void updateCurrentGridFromGPU(VectorSpace* space) {
     #ifdef VIRS_WITH_CUDA
-    std::cout << "Updating current grid data from GPU to CPU." << std::endl;
+    //std::cout << "Updating current grid data from GPU to CPU." << std::endl;
     cudaMemcpy(space->getGrid().p_curr, space->getGrid().d_p_curr, sizeof(float) * space->getGrid().size, cudaMemcpyDeviceToHost);
     #else
     std::cout << "No GPU support, skipping update." << std::endl;
@@ -73,6 +73,7 @@ void updateGPUFromGrid(VectorSpace* space) {
     cudaMemcpy(space->getGrid().d_p_next, space->getGrid().p_next, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
     cudaMemcpy(space->getGrid().d_p_prev, space->getGrid().p_prev, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
     cudaMemcpy(space->getGrid().d_flags, space->getGrid().flags, sizeof(uint8_t) * space->getGrid().size, cudaMemcpyHostToDevice);
+    cudaMemcpy(space->getGrid().d_p_absorb, space->getGrid().p_absorb, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
     #else
     std::cout << "No GPU support, skipping update." << std::endl;
     #endif

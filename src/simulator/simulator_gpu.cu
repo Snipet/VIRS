@@ -20,6 +20,7 @@ namespace
 
 __global__ void fdtd_kernel(const float*  __restrict pPrev,
                             const float*  __restrict pCurr,
+                            const float*  __restrict pAbsorb,
                             float*        __restrict pNext,
                             const uint8_t*__restrict flags)
 {
@@ -33,20 +34,29 @@ __global__ void fdtd_kernel(const float*  __restrict pPrev,
     //pNext[idx] = 1.0f;
 
     /* wall voxels stay zero */
-    if (flags[idx]) { pNext[idx] = 0.0f; return; }
+    if (flags[idx]) { 
+        pNext[idx] = 0.0f; 
+        return; 
+    }
+
+    float pCenter = pCurr[idx];
 
     auto V = [&](int ix,int iy,int iz)->float {
         std::size_t n = ( (std::size_t)iz * d_Ny + iy ) * d_Nx + ix;
-        return flags[n] ? 0.0f : pCurr[n];
+        if(flags[n]){
+            float R_coeff = pAbsorb[n];
+            return R_coeff * pCenter;
+        }else{
+            return pCurr[n];
+        }
     };
 
-    float pc = pCurr[idx];
     float lap = ( V(x+1,y,z) + V(x-1,y,z) +
                   V(x,y+1,z) + V(x,y-1,z) +
-                  V(x,y,z+1) + V(x,y,z-1) - 6.0f*pc ) * d_inv_h2;
+                  V(x,y,z+1) + V(x,y,z-1) - 6.0f*pCenter ) * d_inv_h2;
 
     pNext[idx] =
-          (2.0f - d_gdt) * pc
+          (2.0f - d_gdt) * pCenter
         - (1.0f - d_gdt) * pPrev[idx]
         + d_c2_dt2 * lap;
 }
@@ -84,6 +94,7 @@ extern "C"
         float *d_prev = g.d_p_prev;
         float *d_curr = g.d_p_curr;
         float *d_next = g.d_p_next;
+        float *d_absorb = g.d_p_absorb;
         uint8_t *d_flags = g.d_flags;
 
         /* launch geometry --------------------------------------------------- */
@@ -92,7 +103,7 @@ extern "C"
                (iNy + B.y - 1) / B.y,
                (iNz + B.z - 1) / B.z);
 
-        fdtd_kernel<<<G, B>>>(d_prev, d_curr, d_next, d_flags);
+        fdtd_kernel<<<G, B>>>(d_prev, d_curr, d_absorb, d_next, d_flags);
 
         // CUDA_CHECK(cudaGetLastError());        // macro or manual check
         // CUDA_CHECK(cudaDeviceSynchronize());   // catches bad constants immediately
