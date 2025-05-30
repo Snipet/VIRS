@@ -1,0 +1,56 @@
+cmake_minimum_required(VERSION 3.20)
+project(VIRS)
+
+# Use C++17 standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Use g++ explicitly
+set(CMAKE_C_COMPILER gcc)
+set(CMAKE_CXX_COMPILER g++)
+
+add_compile_options(
+    -O3
+    -march=native
+    -mavx512f
+)
+
+# Define include directories
+include_directories(
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/third_party/args
+    ${CMAKE_SOURCE_DIR}/third_party/embree/include
+    ${CMAKE_SOURCE_DIR}/third_party/tinyobjloader
+    ${CMAKE_SOURCE_DIR}/third_party/libpng
+)
+
+# Recursively find all .cpp files
+file(GLOB_RECURSE SRC_FILES
+    "${CMAKE_SOURCE_DIR}/src/*.cpp"
+)
+
+set(TINYOBJLOADER_SRC
+    ${CMAKE_SOURCE_DIR}/third_party/tinyobjloader/tiny_obj_loader.cc
+)
+
+# Recursively find all .a files in the third_party/embree/build
+file(GLOB_RECURSE EMBREE_LIBS
+    "${CMAKE_SOURCE_DIR}/third_party/embree/build/*.a"
+)
+
+set(LIBPNG_STATIC "${CMAKE_SOURCE_DIR}/third_party/libpng/build/libpng16.a")
+
+find_package(TBB REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(benchmark REQUIRED)
+
+# Build the executable
+add_executable(VIRS ${SRC_FILES} ${TINYOBJLOADER_SRC})
+
+# Link against the embree library
+target_link_libraries(VIRS ${EMBREE_LIBS} TBB::tbb ${LIBPNG_STATIC} ZLIB::ZLIB benchmark::benchmark)
+
+# Optional: show all commands during build
+set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
