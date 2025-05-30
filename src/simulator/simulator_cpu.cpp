@@ -29,6 +29,19 @@ void fdtd_cpu_setup(VectorSpace* space) {
     space->resetStopwatch();
 }
 
+void fdtd_cpu_cleanup(VectorSpace* space) {
+	Grid& grid = space->getGrid();
+
+	// Free CPU memory
+	free(grid.p_curr);
+	free(grid.p_next);
+	free(grid.p_prev);
+	free(grid.p_temp);
+	free(grid.flags);
+
+	std::cout << "CPU memory cleaned up successfully." << std::endl;
+}
+
 void fdtd_cpu_step(VectorSpace* space, float h) {
     Grid& grid = space->getGrid();
     const float inv_h2 = 1.f / (h * h);

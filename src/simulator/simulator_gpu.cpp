@@ -31,6 +31,8 @@ void fdtd_gpu_setup(VectorSpace* space) {
     float *d_p_curr, *d_p_next, *d_p_prev;
     uint8_t *d_flags;
     cudaError_t err;
+
+    std::cout << "Allocating GPU memory for grid..." << std::endl;
     err = cudaMalloc((void**)&d_p_curr, sizeof(float) * grid.size);
     if (err != cudaSuccess) {
         std::cerr << "Error allocating GPU memory for p_curr: " << cudaGetErrorString(err) << std::endl;
@@ -58,6 +60,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         return;
     }
     // Copy initial data from CPU to GPU
+    std::cout << "Copying data from CPU to GPU..." << std::endl;
     err = cudaMemcpy(d_p_curr, grid.p_curr, sizeof(float) * grid.size, cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         std::cerr << "Error copying p_curr to GPU: " << cudaGetErrorString(err) << std::endl;
@@ -94,11 +97,32 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_flags);
         return;
     }
+
+    std::cout << "GPU memory allocation and data transfer completed successfully." << std::endl;
+
     // Store the device pointers in the grid
     grid.d_p_curr = d_p_curr;
     grid.d_p_next = d_p_next;
     grid.d_p_prev = d_p_prev;
     grid.d_flags = d_flags;
+}
+
+void fdtd_gpu_cleanup(VectorSpace* space) {
+    Grid& grid = space->getGrid();
+
+    // Free GPU memory
+    cudaFree(grid.d_p_curr);
+    cudaFree(grid.d_p_next);
+    cudaFree(grid.d_p_prev);
+    cudaFree(grid.d_flags);
+
+    // Free CPU memory
+    free(grid.p_curr);
+    free(grid.p_next);
+    free(grid.p_prev);
+    free(grid.flags);
+
+    std::cout << "GPU and CPU memory cleaned up successfully." << std::endl;
 }
 
 void fdtd_gpu_step(VectorSpace* space, float h) {
