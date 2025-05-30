@@ -11,26 +11,26 @@ VectorSpace::VectorSpace(size_t x, size_t y, size_t z, float h) : h(h) {
 	grid.Nz = z;
 
 	grid.size = grid.Nx * grid.Ny * grid.Nz;
-	constexpr size_t ALIGN = 64;
-	grid.p_curr = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
-	grid.p_next = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
-	grid.p_prev = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
-	grid.p_temp = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
-	grid.flags = static_cast<uint8_t*>(aligned_alloc(ALIGN, sizeof(uint8_t) * grid.size));
+	// constexpr size_t ALIGN = 64;
+	// grid.p_curr = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
+	// grid.p_next = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
+	// grid.p_prev = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
+	// grid.p_temp = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
+	// grid.flags = static_cast<uint8_t*>(aligned_alloc(ALIGN, sizeof(uint8_t) * grid.size));
 	
-	std::cout << "Initializing VectorSpace with dimensions: "
-	          << grid.Nx << " x " << grid.Ny << " x " << grid.Nz
-	          << ", total size: " << grid.size
-	          << ", memory usage: " << getMemoryUsageGB() << " GB." << std::endl;
-	for (size_t i = 0; i < grid.size; ++i) {
-		grid.p_curr[i] = 0.0f;
-		grid.p_next[i] = 0.0f;
-		grid.p_prev[i] = 0.0f;
-		grid.p_temp[i] = 0.0f;
-		grid.flags[i] = 0; // Initialize flags to zero
-	}
-	resetStopwatch();
-	std::cout << "VectorSpace initialized." << std::endl;
+	// std::cout << "Initializing VectorSpace with dimensions: "
+	//           << grid.Nx << " x " << grid.Ny << " x " << grid.Nz
+	//           << ", total size: " << grid.size
+	//           << ", memory usage: " << getMemoryUsageGB() << " GB." << std::endl;
+	// for (size_t i = 0; i < grid.size; ++i) {
+	// 	grid.p_curr[i] = 0.0f;
+	// 	grid.p_next[i] = 0.0f;
+	// 	grid.p_prev[i] = 0.0f;
+	// 	grid.p_temp[i] = 0.0f;
+	// 	grid.flags[i] = 0; // Initialize flags to zero
+	// }
+	// resetStopwatch();
+	// std::cout << "VectorSpace initialized." << std::endl;
 }
 
 VectorSpace::~VectorSpace() {

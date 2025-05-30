@@ -4,6 +4,7 @@
 #include "../util/image.h"
 #include <chrono>
 #include "tbb/parallel_for.h"
+#include "simulator_dispatch.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -201,6 +202,7 @@ void Simulator::loadObj(const std::string& path) {
     size_t memory_usage_bytes = sizex * sizey * sizez * sizeof(float) * 3; // 3 floats per vector
 
     vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, vector_box_size);
+    fdtd_setup(vector_space.get());
     
 
 
@@ -548,7 +550,7 @@ void Simulator::doSimulationStep()
 {
     std::cout << "Performing simulation step " << simulation_step << "... Last step took: " << vector_space->stopwatch() << std::endl;
     //vector_space->computePressureStage();
-    vector_space->computePressureStageParallel();
+    fdtd_step(vector_space.get());
     simulation_step++;
 }
 

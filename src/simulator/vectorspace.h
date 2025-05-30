@@ -49,7 +49,13 @@ struct Grid
 	float *p_prev;
 	float *p_temp;
 
+	float *d_p_curr;
+	float *d_p_next;
+	float *d_p_prev;
+	float *d_p_temp;
+
 	uint8_t *flags;
+	uint8_t *d_flags;
 
 	std::size_t Nx;
 	std::size_t Ny;
@@ -179,9 +185,9 @@ public:
 		return std::to_string(duration) + " ms";
 	}
 
+	float h;
 private:
 	Grid grid;
-	float h;
 	float current_pressure;
 
 	std::chrono::time_point<std::chrono::high_resolution_clock> last_update_time;

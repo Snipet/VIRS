@@ -3,6 +3,10 @@ project(VIRS LANGUAGES CXX)
 
 option(VIRS_WITH_CUDA "Build GPU kernels" ON)      # toggle
 
+if (VIRS_WITH_CUDA)
+    add_compile_definitions(VIRS_WITH_CUDA=1)
+endif()
+
 
 if (VIRS_WITH_CUDA)
     enable_language(CUDA)      # Conditionally enable CUDA
