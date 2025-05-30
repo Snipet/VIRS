@@ -65,7 +65,7 @@ file(GLOB_RECURSE EMBREE_LIBS third_party/embree/build/*.a)
 
 find_package(TBB       REQUIRED)
 find_package(ZLIB      REQUIRED)
-find_package(benchmark REQUIRED)
+#find_package(benchmark REQUIRED)
 find_package(PNG       REQUIRED)
 
 target_link_libraries(VIRS PRIVATE
@@ -73,7 +73,7 @@ target_link_libraries(VIRS PRIVATE
     TBB::tbb
     ZLIB::ZLIB
     PNG::PNG
-    benchmark::benchmark
+#   benchmark::benchmark
 )
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
