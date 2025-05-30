@@ -3,7 +3,7 @@
 #include "simulator/simulator.h"
 
 int main(int argc, char *argv[]) {
-    args::ArgumentParser parser("Virtual Impulse Response Synthesizer");
+    args::ArgumentParser parser("Virtual Impulse Response Synthesizer 2025");
     args::HelpFlag help(parser, "help", "Display help menu", { 'h', "help" });
     args::Flag renderScene(parser, "renderscene", "Render a scene to an image file", { "render-scene" });
     args::Flag runSimulation(parser, "runsimulation", "Run a simulation", { "run-simulation" });
