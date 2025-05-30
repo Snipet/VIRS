@@ -116,22 +116,14 @@ void fdtd_gpu_cleanup(VectorSpace* space) {
     cudaFree(grid.d_p_prev);
     cudaFree(grid.d_flags);
 
-    // Free CPU memory
-    free(grid.p_curr);
-    free(grid.p_next);
-    free(grid.p_prev);
-    free(grid.flags);
+    delete[] grid.p_curr;
+    delete[] grid.p_next;
+    delete[] grid.p_prev;
+    delete[] grid.flags;
+    grid.p_curr = nullptr;
+    grid.p_next = nullptr;
+    grid.p_prev = nullptr;
+    grid.flags = nullptr;
 
     std::cout << "GPU and CPU memory cleaned up successfully." << std::endl;
-}
-
-void fdtd_gpu_step(VectorSpace* space, float h) {
-    Grid& grid = space->getGrid();
-    const float inv_h2 = 1.f / (h * h);
-    const float c = 343.f;
-    const float dt = 0.5 * h / (c * std::sqrt(3.f));
-    const float c2_dt2 = c * c * dt * dt;
-    const float gamma = 5.f;
-    const float damp_factor = gamma * dt;
-
 }

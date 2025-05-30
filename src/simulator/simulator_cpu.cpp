@@ -1,6 +1,7 @@
 #include "simulator_cpu.h"
 #include "tbb/parallel_for.h"
 #include <iostream>
+#include <cstring>
 
 void fdtd_cpu_setup(VectorSpace* space) {
     Grid& grid = space->getGrid();
@@ -68,4 +69,41 @@ void fdtd_cpu_step(VectorSpace* space, float h) {
 
     std::swap(grid.p_prev, grid.p_curr);
     std::swap(grid.p_curr, grid.p_next);
+}
+
+void initPressureSphereCPU(VectorSpace* space, size_t xpos, size_t ypos, size_t zpos, size_t radius, float pressure, bool init) {
+	Grid& grid = space->getGrid();
+
+	if (xpos >= grid.Nx || ypos >= grid.Ny || zpos >= grid.Nz)
+		throw std::out_of_range("initPressureSphere: position out of range");
+
+	if (radius > grid.Nx / 2 || radius > grid.Ny / 2 || radius > grid.Nz / 2)
+		throw std::out_of_range("initPressureSphere: radius exceeds half of grid dimensions");
+
+	const std::size_t xyStride = grid.Nx;          
+	const std::size_t zStride  = grid.Nx * grid.Ny;
+
+	tbb::parallel_for(tbb::blocked_range<size_t>(0, grid.Nz), [&](const tbb::blocked_range<size_t>& r) {
+		for (size_t k = r.begin(); k < r.end(); ++k) {            // z
+			for (size_t j = 0; j < grid.Ny; ++j) {                // y
+				for (size_t i = 0; i < grid.Nx; ++i) {            // x
+					const size_t dx = i - xpos;
+					const size_t dy = j - ypos;
+					const size_t dz = k - zpos;
+					size_t idx = k * zStride + j * xyStride + i;
+
+					if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+						grid.p_curr[idx] = pressure;               // inside sphere
+					} else if (init) {
+						grid.p_curr[idx] = 0.0f;                   // outside sphere
+					}
+				}
+			}
+		}
+	});
+
+	/* initialise p_prev if requested */
+	if (init) {
+		std::memcpy(grid.p_prev, grid.p_curr, sizeof(float) * grid.size);
+	}
 }

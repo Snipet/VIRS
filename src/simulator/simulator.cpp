@@ -275,6 +275,9 @@ void Simulator::loadObj(const std::string& path) {
     
     }
 
+    updateGPUFromGrid(vector_space.get()); // Update the GPU grid with the new material data
+
+
     const size_t numVerts = vertices.size() / 3;
     const size_t numTriangles = indices.size() / 3;
     std::cout << "Loaded " << numVerts << " vertices and " << numTriangles << " triangles." << std::endl;
@@ -536,6 +539,8 @@ Simulator::~Simulator()
         rtcReleaseScene(scene);
         scene = nullptr;
     }
+    fdtd_cleanup(vector_space.get());
+
 }
 
 std::string Simulator::toString()
@@ -548,7 +553,7 @@ std::string Simulator::toString()
 
 void Simulator::doSimulationStep()
 {
-    std::cout << "Performing simulation step " << simulation_step << "... Last step took: " << vector_space->stopwatch() << std::endl;
+    std::cout << "\rPerforming simulation step " << simulation_step << "... Last step took: " << vector_space->stopwatch() << std::flush;
     //vector_space->computePressureStage();
     fdtd_step(vector_space.get());
     simulation_step++;
@@ -564,17 +569,11 @@ void Simulator::simulate(size_t steps)
 
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << "Starting simulation with " << steps << " steps..." << std::endl;
-    vector_space->initPressureSphere(centerx, centery, centerz, 20, 1.f); // Initialize a pressure sphere in the center of the grid
+    initPressureSphere(vector_space.get(), centerx, centery, centerz, 20, 1.f, true); // Initialize a pressure sphere in the center of the grid
+    updateCurrentGridFromGPU(vector_space.get());
     vector_space->layerToImage("output_layer.png", output_layer);
     for (size_t i = 0; i < steps; ++i)
     {
-        // if(simulation_step < 120){
-        //     float pressure = 1.f - static_cast<float>(std::min(simulation_step, 40u)) / 40.f; // Pressure decreases over time
-        //     float phase = static_cast<float>(simulation_step) / 120.f * 2.f * M_PI;
-        //     float phase2 = static_cast<float>(simulation_step) / 231.f * 2.f * M_PI;
-        //     float pressure = std::sin(phase) * std::sin(phase2) * 0.5f + 0.5f; // Pressure oscillates between 0 and 1
-        //     vector_space->initPressureSphere(centerx, centery, centerz, 20, pressure, false);
-        // }
         float phase = static_cast<float>(simulation_step) / 120.f * 2.f * M_PI;
         float phase2 = static_cast<float>(simulation_step) / 231.f * 2.f * M_PI;
         float pressure = std::sin(phase) * std::sin(phase2) * 0.5f + 0.5f; // Pressure oscillates between 0 and 1
@@ -584,28 +583,34 @@ void Simulator::simulate(size_t steps)
         }
 
         if(simulation_step <= 1200){
-            vector_space->initPressureSphere(centerx, centery, centerz, 20, pressure, false);
+            initPressureSphere(vector_space.get(), centerx, centery, centerz, 20, pressure, false);
         }
 
         doSimulationStep();
-        std::string file_out = "output/output_step_";
-        if(i % 2 == 0){
-            int frame = i / 2;
-            if(frame < 10) {
-            file_out += "0000" + std::to_string(frame) + ".png";
-            } else if (frame < 100) {
-                file_out += "000" + std::to_string(frame) + ".png";
-            } else if (frame < 1000) {
-                file_out += "00" + std::to_string(frame) + ".png";
-            } else if (frame < 10000) {
-                file_out += "0" + std::to_string(frame) + ".png";
-            } else {
-                file_out += std::to_string(frame) + ".png";
-            }
-        //vector_space->layerToImage(file_out, output_layer);
-        renderImageToFile({7.f, 7.f, 7.f}, file_out, true);
-        }
+        // std::string file_out = "output/output_step_";
+        // if(i % 2 == 0){
+        //     int frame = i / 2;
+        //     if(frame < 10) {
+        //     file_out += "0000" + std::to_string(frame) + ".png";
+        //     } else if (frame < 100) {
+        //         file_out += "000" + std::to_string(frame) + ".png";
+        //     } else if (frame < 1000) {
+        //         file_out += "00" + std::to_string(frame) + ".png";
+        //     } else if (frame < 10000) {
+        //         file_out += "0" + std::to_string(frame) + ".png";
+        //     } else {
+        //         file_out += std::to_string(frame) + ".png";
+        //     }
+        // //vector_space->layerToImage(file_out, output_layer);
+        // renderImageToFile({7.f, 7.f, 7.f}, file_out, true);
+        //}
     }
+    //initPressureSphere(vector_space.get(), centerx, centery, centerz, 100, 1.f, true);
+    updateCurrentGridFromGPU(vector_space.get());
+
+    //Now p_curr contains the final pressure values, we can render the final image
+    //renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);
+
     std::cout << "Simulation completed after " << steps << " steps." << std::endl;
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
