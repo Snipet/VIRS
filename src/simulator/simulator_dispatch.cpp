@@ -78,3 +78,13 @@ void updateGPUFromGrid(VectorSpace* space) {
     std::cout << "No GPU support, skipping update." << std::endl;
     #endif
 }
+
+void buildSpongeLayer(VectorSpace* space) {
+    #ifdef VIRS_WITH_CUDA
+    std::cout << "Building sponge layer on GPU." << std::endl;
+    buildSpongeLayerGPU(space);
+    #else
+    std::cout << "Building sponge layer on CPU." << std::endl;
+    // Implement CPU version if needed
+    #endif
+}

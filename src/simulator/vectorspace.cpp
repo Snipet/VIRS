@@ -107,10 +107,20 @@ void VectorSpace::layerToImage(const std::string& out, std::size_t layer)
         	}else{
 				float p = grid.p_curr[rowOff + i];
 				uint8_t flag = grid.flags[rowOff + i];
+				float absorb = grid.p_absorb[rowOff + i];
 
 				unsigned char red  = 0;
 				unsigned char blue = 0;
-				unsigned char green = (flag == 1) ? 255 : 0; // Set green if flag is 1
+				unsigned char green = 0;
+				if(flag == 1){
+					green = 255;
+				}
+				// }else if (flag == 2) {
+				// 	// green = static_cast<unsigned char>(
+				// 	// 		std::clamp(absorb * 255.f, 0.0f, 255.0f));
+				// 	green = 128;
+				// }
+
 				if (p >= 0.0f)
 					red  = static_cast<unsigned char>(
 							std::clamp(p * scale, 0.0f, 255.0f));

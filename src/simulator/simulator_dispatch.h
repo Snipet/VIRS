@@ -5,6 +5,7 @@ void fdtd_setup(VectorSpace* space);
 void fdtd_step(VectorSpace* space);
 void fdtd_cleanup(VectorSpace* space);
 void initPressureSphere(VectorSpace* space, size_t xpos, size_t ypos, size_t zpos, size_t radius, float pressure, bool init);
+void buildSpongeLayer(VectorSpace* space);
 
 // If using GPU, this function will update the grid from the GPU memory to the CPU memory.
 void updateAllGridFromGPU(VectorSpace* space);

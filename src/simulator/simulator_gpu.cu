@@ -15,7 +15,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 namespace
 {
     __constant__ int d_Nx, d_Ny, d_Nz;
-    __constant__ float d_inv_h2, d_c2_dt2, d_gdt;
+    __constant__ float d_inv_h2, d_c2_dt2, d_dt;
 }
 
 __global__ void fdtd_kernel(const float*  __restrict pPrev,
@@ -34,7 +34,7 @@ __global__ void fdtd_kernel(const float*  __restrict pPrev,
     //pNext[idx] = 1.0f;
 
     /* wall voxels stay zero */
-    if (flags[idx]) { 
+    if (flags[idx] == 1) { 
         pNext[idx] = 0.0f; 
         return; 
     }
@@ -43,11 +43,10 @@ __global__ void fdtd_kernel(const float*  __restrict pPrev,
 
     auto V = [&](int ix,int iy,int iz)->float {
         std::size_t n = ( (std::size_t)iz * d_Ny + iy ) * d_Nx + ix;
-        if(flags[n]){
-            float R_coeff = pAbsorb[n];
-            return R_coeff * pCenter;
+        if(flags[n] == 1 ) {
+            return 0.0f; // Wall voxel
         }else{
-            return pCurr[n];
+            return pCurr[n]; // Normal voxel
         }
     };
 
@@ -55,9 +54,10 @@ __global__ void fdtd_kernel(const float*  __restrict pPrev,
                   V(x,y+1,z) + V(x,y-1,z) +
                   V(x,y,z+1) + V(x,y,z-1) - 6.0f*pCenter ) * d_inv_h2;
 
+    float local_sigma_dt = pAbsorb[idx] * d_dt;
     pNext[idx] =
-          (2.0f - d_gdt) * pCenter
-        - (1.0f - d_gdt) * pPrev[idx]
+          (2.0f - local_sigma_dt) * pCenter
+        - (1.0f - local_sigma_dt) * pPrev[idx]
         + d_c2_dt2 * lap;
 }
 
@@ -78,14 +78,13 @@ extern "C"
             float c = 343.f;
             float dt = 0.5f * h / (c * std::sqrt(3.f));
             float c2_dt2 = c * c * dt * dt;
-            float gdt = 5.f * dt;
             float inv_h2 = 1.f / (h * h);
             cudaMemcpyToSymbol(d_Nx, &iNx, sizeof(int));
             cudaMemcpyToSymbol(d_Ny, &iNy, sizeof(int));
             cudaMemcpyToSymbol(d_Nz, &iNz, sizeof(int));
             cudaMemcpyToSymbol(d_inv_h2, &inv_h2, sizeof(float));
             cudaMemcpyToSymbol(d_c2_dt2, &c2_dt2, sizeof(float));
-            cudaMemcpyToSymbol(d_gdt, &gdt, sizeof(float));
+            cudaMemcpyToSymbol(d_dt, &dt, sizeof(float));
 
             constantsUploaded = true;
         }

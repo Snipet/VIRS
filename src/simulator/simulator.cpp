@@ -36,21 +36,20 @@ static Vec3f abs(const Vec3f &v)
     return {std::fabs(v.x), std::fabs(v.y), std::fabs(v.z)};
 }
 
-
-static inline bool triangleBoxOverlap3(const Vec3f& v0w,
-                                      const Vec3f& v1w,
-                                      const Vec3f& v2w,
-                                      const Vec3f& boxMin,
-                                      const Vec3f& boxMax)
+static inline bool triangleBoxOverlap3(const Vec3f &v0w,
+                                       const Vec3f &v1w,
+                                       const Vec3f &v2w,
+                                       const Vec3f &boxMin,
+                                       const Vec3f &boxMax)
 {
     /* 0. translate triangle so that box centre is at origin */
-    Vec3f c = { (boxMin.x + boxMax.x)*0.5f,
-                (boxMin.y + boxMax.y)*0.5f,
-                (boxMin.z + boxMax.z)*0.5f };
+    Vec3f c = {(boxMin.x + boxMax.x) * 0.5f,
+               (boxMin.y + boxMax.y) * 0.5f,
+               (boxMin.z + boxMax.z) * 0.5f};
 
-    Vec3f e = { (boxMax.x - boxMin.x)*0.5f,
-                (boxMax.y - boxMin.y)*0.5f,
-                (boxMax.z - boxMin.z)*0.5f };
+    Vec3f e = {(boxMax.x - boxMin.x) * 0.5f,
+               (boxMax.y - boxMin.y) * 0.5f,
+               (boxMax.z - boxMin.z) * 0.5f};
 
     Vec3f v0 = v0w - c;
     Vec3f v1 = v1w - c;
@@ -66,58 +65,73 @@ static inline bool triangleBoxOverlap3(const Vec3f& v0w,
     Vec3f a2 = abs(f2);
 
     auto axisTest = [&](float a, float b, float fa, float fb,
-                        const Vec3f& p0, const Vec3f& p1, const Vec3f& p2,
+                        const Vec3f &p0, const Vec3f &p1, const Vec3f &p2,
                         float ex, float ey) -> bool
     {
-        float p0proj = a*p0.y - b*p0.z;
-        float p1proj = a*p1.y - b*p1.z;
-        float p2proj = a*p2.y - b*p2.z;
+        float p0proj = a * p0.y - b * p0.z;
+        float p1proj = a * p1.y - b * p1.z;
+        float p2proj = a * p2.y - b * p2.z;
 
         float minP = std::min({p0proj, p1proj, p2proj});
         float maxP = std::max({p0proj, p1proj, p2proj});
 
-        float rad = fa*ey + fb*ex;
+        float rad = fa * ey + fb * ex;
         return !(minP > rad || maxP < -rad);
     };
 
     /* 1.1  edge f0 cross coordinate axes */
-    if (!axisTest( f0.z, f0.y, a0.z, a0.y, v0,v1,v2, e.y, e.z)) return false;
-    if (!axisTest( f0.z, f0.x, a0.z, a0.x, v0,v1,v2, e.x, e.z)) return false;
-    if (!axisTest( f0.y, f0.x, a0.y, a0.x, v0,v1,v2, e.x, e.y)) return false;
+    if (!axisTest(f0.z, f0.y, a0.z, a0.y, v0, v1, v2, e.y, e.z))
+        return false;
+    if (!axisTest(f0.z, f0.x, a0.z, a0.x, v0, v1, v2, e.x, e.z))
+        return false;
+    if (!axisTest(f0.y, f0.x, a0.y, a0.x, v0, v1, v2, e.x, e.y))
+        return false;
 
     /* 1.2  edge f1 */
-    if (!axisTest( f1.z, f1.y, a1.z, a1.y, v0,v1,v2, e.y, e.z)) return false;
-    if (!axisTest( f1.z, f1.x, a1.z, a1.x, v0,v1,v2, e.x, e.z)) return false;
-    if (!axisTest( f1.y, f1.x, a1.y, a1.x, v0,v1,v2, e.x, e.y)) return false;
+    if (!axisTest(f1.z, f1.y, a1.z, a1.y, v0, v1, v2, e.y, e.z))
+        return false;
+    if (!axisTest(f1.z, f1.x, a1.z, a1.x, v0, v1, v2, e.x, e.z))
+        return false;
+    if (!axisTest(f1.y, f1.x, a1.y, a1.x, v0, v1, v2, e.x, e.y))
+        return false;
 
     /* 1.3  edge f2 */
-    if (!axisTest( f2.z, f2.y, a2.z, a2.y, v0,v1,v2, e.y, e.z)) return false;
-    if (!axisTest( f2.z, f2.x, a2.z, a2.x, v0,v1,v2, e.x, e.z)) return false;
-    if (!axisTest( f2.y, f2.x, a2.y, a2.x, v0,v1,v2, e.x, e.y)) return false;
+    if (!axisTest(f2.z, f2.y, a2.z, a2.y, v0, v1, v2, e.y, e.z))
+        return false;
+    if (!axisTest(f2.z, f2.x, a2.z, a2.x, v0, v1, v2, e.x, e.z))
+        return false;
+    if (!axisTest(f2.y, f2.x, a2.y, a2.x, v0, v1, v2, e.x, e.y))
+        return false;
 
     /* 2. test overlap in the (x,y,z) axes — box face planes */
-    auto min3 = [](float a,float b,float c){ return std::min(a,std::min(b,c)); };
-    auto max3 = [](float a,float b,float c){ return std::max(a,std::max(b,c)); };
+    auto min3 = [](float a, float b, float c)
+    { return std::min(a, std::min(b, c)); };
+    auto max3 = [](float a, float b, float c)
+    { return std::max(a, std::max(b, c)); };
 
     float min = min3(v0.x, v1.x, v2.x);
     float max = max3(v0.x, v1.x, v2.x);
-    if (min >  e.x || max < -e.x) return false;
+    if (min > e.x || max < -e.x)
+        return false;
 
     min = min3(v0.y, v1.y, v2.y);
     max = max3(v0.y, v1.y, v2.y);
-    if (min >  e.y || max < -e.y) return false;
+    if (min > e.y || max < -e.y)
+        return false;
 
     min = min3(v0.z, v1.z, v2.z);
     max = max3(v0.z, v1.z, v2.z);
-    if (min >  e.z || max < -e.z) return false;
+    if (min > e.z || max < -e.z)
+        return false;
 
     /* 3. triangle plane vs box */
     Vec3f n = cross(f0, f1);
     float d = -dot(n, v0);
-    float r = e.x*std::fabs(n.x) + e.y*std::fabs(n.y) + e.z*std::fabs(n.z);
-    if (std::fabs(d) > r) return false;
+    float r = e.x * std::fabs(n.x) + e.y * std::fabs(n.y) + e.z * std::fabs(n.z);
+    if (std::fabs(d) > r)
+        return false;
 
-    return true;            // no separating axis found
+    return true; // no separating axis found
 }
 
 Simulator::Simulator(unsigned int w, unsigned int h)
@@ -142,7 +156,8 @@ Simulator::Simulator(unsigned int w, unsigned int h)
     }
 }
 
-void Simulator::loadObj(const std::string& path) {
+void Simulator::loadObj(const std::string &path)
+{
 
     scene = rtcNewScene(device);
     object_path = path;
@@ -161,11 +176,12 @@ void Simulator::loadObj(const std::string& path) {
     std::vector<float> vertices;       // flat array xyzxyz...
     std::vector<unsigned int> indices; // index triples
 
-    //Determine bounding box;
-    bounding_box.min = { std::numeric_limits<float>::max(),std::numeric_limits<float>::max() ,std::numeric_limits<float>::max() };
-    bounding_box.max = { std::numeric_limits<float>::min(),std::numeric_limits<float>::min() ,std::numeric_limits<float>::min() };
+    // Determine bounding box;
+    bounding_box.min = {std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
+    bounding_box.max = {std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min()};
 
-    for (int i = 0; i < attrib.vertices.size(); i+=3) {
+    for (int i = 0; i < attrib.vertices.size(); i += 3)
+    {
         bounding_box.min.x = std::min(bounding_box.min.x, attrib.vertices[i]);
         bounding_box.min.y = std::min(bounding_box.min.y, attrib.vertices[i + 1]);
         bounding_box.min.z = std::min(bounding_box.min.z, attrib.vertices[i + 2]);
@@ -175,7 +191,7 @@ void Simulator::loadObj(const std::string& path) {
         bounding_box.max.z = std::max(bounding_box.max.z, attrib.vertices[i + 2]);
     }
 
-    //Nudge the bounding box by 10 cm in each direction to avoid numerical issues
+    // Nudge the bounding box by 10 cm in each direction to avoid numerical issues
     float nudge = 0.1f; // 10 cm
     bounding_box.min.x -= nudge;
     bounding_box.min.y -= nudge;
@@ -187,8 +203,7 @@ void Simulator::loadObj(const std::string& path) {
     std::cout << "Bounding box: min(" << bounding_box.min.x << ", " << bounding_box.min.y << ", " << bounding_box.min.z
               << "), max(" << bounding_box.max.x << ", " << bounding_box.max.y << ", " << bounding_box.max.z << ")" << std::endl;
 
-    
-    vector_box_size = 343.f / (MAX_AUDIO_FREQ * 2.f  * (float)SIMULATION_OVERSAMPLING);
+    vector_box_size = 343.f / (MAX_AUDIO_FREQ * 2.f * (float)SIMULATION_OVERSAMPLING);
     float spanx = bounding_box.max.x - bounding_box.min.x;
     float spany = bounding_box.max.y - bounding_box.min.y;
     float spanz = bounding_box.max.z - bounding_box.min.z;
@@ -203,10 +218,8 @@ void Simulator::loadObj(const std::string& path) {
 
     vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, vector_box_size);
     fdtd_setup(vector_space.get());
-    
 
-
-    for (const auto& shape : shapes)
+    for (const auto &shape : shapes)
     {
         size_t index_offset = 0;
         for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f)
@@ -229,10 +242,10 @@ void Simulator::loadObj(const std::string& path) {
         }
     }
 
-    //Compute cell materials based on the imported mesh
-    Grid& grid = vector_space->getGrid();
+    // Compute cell materials based on the imported mesh
+    Grid &grid = vector_space->getGrid();
 
-    //Iterate over every triangle and compute the material for each cell
+    // Iterate over every triangle and compute the material for each cell
     for (size_t s = 0; s < indices.size(); s += 3)
     {
         unsigned int idx0 = indices[s];
@@ -258,37 +271,53 @@ void Simulator::loadObj(const std::string& path) {
         std::cout << "Triangle AABB: (" << ixMin << ", " << iyMin << ", " << izMin
                   << ") to (" << ixMax << ", " << iyMax << ", " << izMax << ")" << std::endl;
 
-        //Sweep through box
+        // Sweep through box
         for (int k = izMin; k <= izMax; ++k)
-        for (int j = iyMin; j <= iyMax; ++j)
-        for (int i = ixMin; i <= ixMax; ++i) {
-            
-            Vec3f boxMin(i      , j      , k      );
-            Vec3f boxMax(i + 1.f, j + 1.f, k + 1.f);
-    
-            // Check if the triangle intersects the box
-            if(triangleBoxOverlap3(gv0,gv1,gv2, boxMin,boxMax)){
-                size_t idx = grid.idx(i, j, k);
-                grid.flags[idx] = 1; // Mark the cell as occupied
-                grid.p_absorb[idx] = 0.97f;
-            }
-        }
-    
+            for (int j = iyMin; j <= iyMax; ++j)
+                for (int i = ixMin; i <= ixMax; ++i)
+                {
+
+                    Vec3f boxMin(i, j, k);
+                    Vec3f boxMax(i + 1.f, j + 1.f, k + 1.f);
+
+                    // Check if the triangle intersects the box
+                    if (triangleBoxOverlap3(gv0, gv1, gv2, boxMin, boxMax))
+                    {
+                        size_t idx = grid.idx(i, j, k);
+                        grid.flags[idx] = 1; // Mark the cell as occupied
+                        grid.p_absorb[idx] = 2000.f;
+                    }
+                }
     }
 
-    updateGPUFromGrid(vector_space.get()); // Update the GPU grid with the new material data
+    std::cout << "Material data computed for the grid." << std::endl;
+    std::cout << "Computing absorption material..." << std::endl;
 
+    uint8_t *tmp_flags = new uint8_t[grid.size];
+    std::memcpy(tmp_flags, grid.flags, grid.size * sizeof(uint8_t));
+
+    float *tmp_p_absorb = new float[grid.size];
+    std::memcpy(tmp_p_absorb, grid.p_absorb, grid.size * sizeof(float));
+
+    const int absorptionWidth = 3;
+    const float absorptionEpsilon = 1.f / static_cast<float>(absorptionWidth);
+
+    // Compute absorption material
+    buildSpongeLayer(vector_space.get());
+    std::cout << "Absorption material computed." << std::endl;
+
+    updateGPUFromGrid(vector_space.get()); // Update the GPU grid with the new material data
 
     const size_t numVerts = vertices.size() / 3;
     const size_t numTriangles = indices.size() / 3;
     std::cout << "Loaded " << numVerts << " vertices and " << numTriangles << " triangles." << std::endl;
     RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
 
-    float* vb = static_cast<float*>(rtcSetNewGeometryBuffer(
+    float *vb = static_cast<float *>(rtcSetNewGeometryBuffer(
         geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(float) * 3, numVerts));
     std::memcpy(vb, vertices.data(), vertices.size() * sizeof(float));
 
-    unsigned int* ib = static_cast<unsigned int*>(rtcSetNewGeometryBuffer(
+    unsigned int *ib = static_cast<unsigned int *>(rtcSetNewGeometryBuffer(
         geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(unsigned int) * 3, numTriangles));
     std::memcpy(ib, indices.data(), indices.size() * sizeof(unsigned int));
 
@@ -339,13 +368,15 @@ void Simulator::renderAnimation(std::string outPath, int frames, float radius)
     }
 }
 
-void Simulator::renderImageToFile(Vec3f cameraPos, const std::string& output_path, bool useGrid) {
+void Simulator::renderImageToFile(Vec3f cameraPos, const std::string &output_path, bool useGrid)
+{
     render(cameraPos, useGrid);
     // Save the image to a file
     save_png(output_path.c_str(), framebuffer, width, height, false);
 }
 
-void Simulator::renderImageToMemory(Vec3f cameraPos, unsigned char** out, size_t* out_size) {
+void Simulator::renderImageToMemory(Vec3f cameraPos, unsigned char **out, size_t *out_size)
+{
     render(cameraPos);
     save_png_to_memory(framebuffer, width, height, width * 3, out, out_size);
 }
@@ -414,7 +445,7 @@ void Simulator::render(Vec3f cameraPos, bool useGrid)
 
                 rtcIntersect1(scene, &rayHit);
                 RTCRayHit16 rayHit16;
-                if(rayHit.hit.geomID == RTC_INVALID_GEOMETRY_ID)
+                if (rayHit.hit.geomID == RTC_INVALID_GEOMETRY_ID)
                 {
                     // No hit, set background color
                     framebuffer[(y * width + x) * 3 + 0] = 100;
@@ -436,10 +467,10 @@ void Simulator::render(Vec3f cameraPos, bool useGrid)
                         Vec3f shadeColor = {shade, shade, shade};
 
                         Vec3f rayPos = {rayHit.ray.org_x + rayDir.x * rayHit.ray.tfar,
-                                                rayHit.ray.org_y + rayDir.y * rayHit.ray.tfar,
-                                                rayHit.ray.org_z + rayDir.z * rayHit.ray.tfar};
-                        
-                        //Nudge the ray along the normal
+                                        rayHit.ray.org_y + rayDir.y * rayHit.ray.tfar,
+                                        rayHit.ray.org_z + rayDir.z * rayHit.ray.tfar};
+
+                        // Nudge the ray along the normal
                         const float epsilon = vector_box_size; // Amount to "nudge"
                         rayPos.x -= n.x * epsilon;
                         rayPos.y -= n.y * epsilon;
@@ -449,22 +480,22 @@ void Simulator::render(Vec3f cameraPos, bool useGrid)
                         if (useGrid && idx < vector_space->getGrid().size)
                         {
                             float pressure = (vector_space->getGrid().p_curr[idx]);
-                            if(pressure > 0.0f)
+                            if (pressure > 0.0f)
                             {
                                 // Map pressure to color
                                 pressureColor.x = 1.f;
-                            }else{
+                            }
+                            else
+                            {
                                 pressureColor.z = 1.f;
                             }
                             float interpolateVal = std::sqrt(std::abs(pressure * 3.f));
                             interpolateVal = std::min(interpolateVal, 1.f);
-                            interpolateVal = std::max(interpolateVal, 0.f); 
+                            interpolateVal = std::max(interpolateVal, 0.f);
                             shadeColor.x = pressureColor.x * interpolateVal + shadeColor.x * (1.f - interpolateVal);
                             shadeColor.y = pressureColor.y * interpolateVal + shadeColor.y * (1.f - interpolateVal);
                             shadeColor.z = pressureColor.z * interpolateVal + shadeColor.z * (1.f - interpolateVal);
                         }
-
-                    
 
                         // Hit detected, color the pixel based on the hit normal
                         unsigned char r = static_cast<unsigned char>(shadeColor.x * 255);
@@ -480,12 +511,12 @@ void Simulator::render(Vec3f cameraPos, bool useGrid)
                         framebuffer[(y * width + x) * 3 + 0] = r;
                         framebuffer[(y * width + x) * 3 + 1] = g;
                         framebuffer[(y * width + x) * 3 + 2] = b;
-                        cont = false; //We have hit a primitive whose normal faces away from the camera
+                        cont = false; // We have hit a primitive whose normal faces away from the camera
                     }
                     else
                     {
 
-                        const float epsilon = 0.001f; //Amount to "nudge" the ray to prevent re-intersection
+                        const float epsilon = 0.001f; // Amount to "nudge" the ray to prevent re-intersection
                         Vec3f hitPoint;
                         hitPoint.x = rayHit.ray.org_x + rayDir.x * rayHit.ray.tfar;
                         hitPoint.y = rayHit.ray.org_y + rayDir.y * rayHit.ray.tfar;
@@ -504,8 +535,6 @@ void Simulator::render(Vec3f cameraPos, bool useGrid)
                         rayHit.ray.org_z = offsetOrigin.z;
                         rayHit.ray.tnear = 0.0f;
                         rayHit.ray.tfar = std::numeric_limits<float>::infinity();
-                        
-        
                     }
                 }
                 numBounces++;
@@ -516,7 +545,6 @@ void Simulator::render(Vec3f cameraPos, bool useGrid)
             }
         }
     }
-
 }
 
 Simulator::~Simulator()
@@ -541,7 +569,6 @@ Simulator::~Simulator()
         scene = nullptr;
     }
     fdtd_cleanup(vector_space.get());
-
 }
 
 std::string Simulator::toString()
@@ -555,7 +582,7 @@ std::string Simulator::toString()
 void Simulator::doSimulationStep()
 {
     std::cout << "\rPerforming simulation step " << simulation_step << "... Last step took: " << vector_space->stopwatch() << std::flush;
-    //vector_space->computePressureStage();
+    // vector_space->computePressureStage();
     fdtd_step(vector_space.get());
     simulation_step++;
 }
@@ -563,11 +590,11 @@ void Simulator::doSimulationStep()
 void Simulator::simulate(size_t steps)
 {
     simulation_step = 0;
-    Grid& grid = vector_space->getGrid();
+    Grid &grid = vector_space->getGrid();
     size_t centerx = grid.Nx / 2;
     size_t centery = grid.Ny / 2;
     size_t centerz = grid.Nz / 2;
-    float c = 343.f; // Speed of sound in m/s
+    float c = 343.f;           // Speed of sound in m/s
     float h = vector_box_size; // Size of the grid cell in meters
     float dt = 0.5f * h / (c * std::sqrt(3.f));
     float c2_dt2 = c * c * dt * dt;
@@ -585,50 +612,51 @@ void Simulator::simulate(size_t steps)
         float phase = static_cast<float>(simulation_step) / 120.f * 2.f * M_PI;
         float phase2 = static_cast<float>(simulation_step) / 231.f * 2.f * M_PI;
         float pressure = std::sin(phase) * std::sin(phase2) * 0.5f + 0.5f; // Pressure oscillates between 0 and 1
-        pressure = pressure * pressure; // Square the pressure to make it more pronounced
-        if(simulation_step > 1000){
+        pressure = pressure * pressure;                                    // Square the pressure to make it more pronounced
+        if (simulation_step > 1000)
+        {
             pressure = pressure * (1.f - static_cast<float>(std::min(simulation_step - 1000, 200u)) / 200.f); // Pressure decreases over time
         }
 
-        if(simulation_step <= 1200){
+        if (simulation_step <= 1200)
+        {
             initPressureSphere(vector_space.get(), centerx, centery, centerz, 20, pressure, false);
         }
 
         doSimulationStep();
-        // std::string file_out = "output/output_step_";
-        // if(i % 2 == 0){
-        //     int frame = i / 2;
-        //     if(frame < 10) {
-        //     file_out += "00000" + std::to_string(frame) + ".png";
-        //     } else if (frame < 100) {
-        //         file_out += "0000" + std::to_string(frame) + ".png";
-        //     } else if (frame < 1000) {
-        //         file_out += "000" + std::to_string(frame) + ".png";
-        //     } else if (frame < 10000) {
-        //         file_out += "00" + std::to_string(frame) + ".png";
-        //     } else if (frame < 100000) {
-        //         file_out += "0" + std::to_string(frame) + ".png";
-        //     } else {
-        //         file_out += std::to_string(frame) + ".png";
-        //     }
-        // updateCurrentGridFromGPU(vector_space.get());    
-        // vector_space->layerToImage(file_out, output_layer);
+        std::string file_out = "output/output_step_";
+        if(i % 10 == 0){
+            int frame = i / 10;
+            if(frame < 10) {
+            file_out += "00000" + std::to_string(frame) + ".png";
+            } else if (frame < 100) {
+                file_out += "0000" + std::to_string(frame) + ".png";
+            } else if (frame < 1000) {
+                file_out += "000" + std::to_string(frame) + ".png";
+            } else if (frame < 10000) {
+                file_out += "00" + std::to_string(frame) + ".png";
+            } else if (frame < 100000) {
+                file_out += "0" + std::to_string(frame) + ".png";
+            } else {
+                file_out += std::to_string(frame) + ".png";
+            }
+        updateCurrentGridFromGPU(vector_space.get());
+        vector_space->layerToImage(file_out, output_layer);
         //renderImageToFile({7.f, 7.f, 7.f}, file_out, true);
-        //}
+        }
     }
-    //initPressureSphere(vector_space.get(), centerx, centery, centerz, 100, 1.f, true);
+    // initPressureSphere(vector_space.get(), centerx, centery, centerz, 100, 1.f, true);
     updateCurrentGridFromGPU(vector_space.get());
 
-    //Now p_curr contains the final pressure values, we can render the final image
-    //renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);
+    // Now p_curr contains the final pressure values, we can render the final image
+    // renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);
 
     std::cout << "Simulation completed after " << steps << " steps." << std::endl;
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cout << "Total simulation time: " << duration << " ms" << std::endl;
-    //renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);
-    
+    // renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);
 
     vector_space->layerToImage("output_layer_after.png", output_layer);
-    //vector_space->gridToImages("output/output_grid_");
+    // vector_space->gridToImages("output/output_grid_");
 }
