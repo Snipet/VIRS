@@ -1,4 +1,6 @@
 #include "simulator_gpu.h"
+
+#ifdef VIRS_WITH_CUDA
 #include <cuda_runtime.h>
 #include <iostream>
 
@@ -158,3 +160,4 @@ void fdtd_gpu_cleanup(VectorSpace* space) {
 
     std::cout << "GPU and CPU memory cleaned up successfully." << std::endl;
 }
+#endif // VIRS_WITH_CUDA
