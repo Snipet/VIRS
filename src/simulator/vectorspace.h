@@ -60,11 +60,16 @@ struct Grid
 	float *p_absorb;
 	float *d_p_absorb;
 
+	float *p_source;
+	float *d_p_source;
+
 
 	std::size_t Nx;
 	std::size_t Ny;
 	std::size_t Nz;
 	std::size_t size;
+
+	std::size_t p_source_size;
 
 	// Flattened index: z‑major for unit‑stride in innermost loop
 	inline size_t idx(size_t x, size_t y, size_t z)
@@ -146,7 +151,7 @@ struct Grid
 class VectorSpace
 {
 public:
-	VectorSpace(std::size_t x, std::size_t y, std::size_t z, float h);
+	VectorSpace(std::size_t x, std::size_t y, std::size_t z, size_t source_size, float h);
 	~VectorSpace();
 	float getMemoryUsageGB();
 	void computePressureStage();

@@ -32,6 +32,7 @@ target_include_directories(VIRS PRIVATE
     third_party/embree/include
     third_party/tinyobjloader
     third_party/libpng
+    third_party/AudioFile
 )
 
 target_compile_options(VIRS PRIVATE

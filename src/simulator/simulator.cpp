@@ -154,6 +154,7 @@ Simulator::Simulator(unsigned int w, unsigned int h)
     {
         std::cerr << "Failed to create Embree device" << std::endl;
     }
+
 }
 
 void Simulator::loadObj(const std::string &path)
@@ -216,7 +217,7 @@ void Simulator::loadObj(const std::string &path)
     std::cout << "Vector box size: " << vector_box_size << "m, size in vectors: (" << sizex << ", " << sizey << ", " << sizez << ")" << std::endl;
     size_t memory_usage_bytes = sizex * sizey * sizez * sizeof(float) * 3; // 3 floats per vector
 
-    vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, vector_box_size);
+    vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, audio_file.getNumSamplesPerChannel(), vector_box_size);
     fdtd_setup(vector_space.get());
 
     for (const auto &shape : shapes)

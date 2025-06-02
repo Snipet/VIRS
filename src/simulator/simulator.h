@@ -8,6 +8,7 @@
 #include <cmath>
 #include <iostream>
 #include <cstring>
+#include "AudioFile.h"
 
 struct BoundingBox {
     Vec3f min;
@@ -41,6 +42,10 @@ public:
         };
     }
 
+    void setSourcePath(const std::string& path) {
+        audio_file.load(path);
+    }
+
 private:
     // Private member variables for the Simulator
     int width;
@@ -55,4 +60,5 @@ private:
     std::unique_ptr<VectorSpace> vector_space;
     unsigned int simulation_step;
     size_t output_layer;
+    AudioFile<float> audio_file; // Audio file for the source
 };

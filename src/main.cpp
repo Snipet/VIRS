@@ -10,6 +10,7 @@ int main(int argc, char *argv[]) {
     args::Flag testLoadObj(parser, "testloadobj", "Test loading an OBJ file", { "test-load-obj" });
     args::ValueFlag<std::string> outputFile(parser, "output", "Output file name", { 'o', "output" });
     args::ValueFlag<std::string> inputFile(parser, "input", "Input file name", { 'i', "input" });
+    args::ValueFlag<std::string> sourceFile(parser, "source", "Source file name", { 's', "source" });
     args::ValueFlag<int> frames(parser, "frames", "Number of simulation frames", { 'f', "frames" }, 100);
     args::ValueFlag<int> outputLayer(parser, "layer", "Output layer for rendering", { 'l', "layer" }, 150);
     try
@@ -60,6 +61,7 @@ int main(int argc, char *argv[]) {
         if (inputFile) {
             std::cout << "Loading object from: " << args::get(inputFile) << std::endl;
             simulator->loadObj(args::get(inputFile));
+            simulator->setSourcePath(args::get(sourceFile));
         } else {
             std::cerr << "No input file specified for simulation." << std::endl;
             return 1;

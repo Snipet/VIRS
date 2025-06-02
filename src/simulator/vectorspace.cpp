@@ -5,10 +5,11 @@
 #include "../util/image.h"
 #include <cstring>
 
-VectorSpace::VectorSpace(size_t x, size_t y, size_t z, float h) : h(h) {
+VectorSpace::VectorSpace(size_t x, size_t y, size_t z, size_t source_size, float h) : h(h) {
 	grid.Nx = x;
 	grid.Ny = y;
 	grid.Nz = z;
+	grid.p_source_size = source_size;
 
 	grid.size = grid.Nx * grid.Ny * grid.Nz;
 	// constexpr size_t ALIGN = 64;
