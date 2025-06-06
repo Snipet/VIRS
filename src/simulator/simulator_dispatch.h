@@ -17,3 +17,5 @@ void updateCurrentGridFromGPU(VectorSpace* space);
 // If using GPU, this function will update the GPU's grid data from the CPU memory.
 void updateGPUFromGrid(VectorSpace* space);
 
+void uploadNormalsToGPU(VectorSpace* space);
+

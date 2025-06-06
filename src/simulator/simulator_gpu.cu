@@ -62,10 +62,11 @@ __global__ void fdtd_kernel(const float*  __restrict pPrev,
 
     float local_sigma_dt = pAbsorb[idx] * d_dt;
     pNext[idx] =
-          (2.0f - local_sigma_dt) * pCenter
-        - (1.0f - local_sigma_dt) * pPrev[idx]
+          (2.0f) * pCenter
+        - (1.0f) * pPrev[idx]
         + d_c2_dt2 * lap;
 }
+
 
 extern "C"
 {

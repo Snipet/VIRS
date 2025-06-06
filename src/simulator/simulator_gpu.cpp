@@ -15,6 +15,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
 	grid.flags = static_cast<uint8_t*>(aligned_alloc(ALIGN, sizeof(uint8_t) * grid.size));
     grid.p_absorb = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
     grid.p_source = space->audio_file.samples[0].data(); // Assuming audio_file is already loaded
+    grid.normals = static_cast<uint8_t*>(aligned_alloc(ALIGN, sizeof(uint8_t) * grid.size));
 	
 	std::cout << "Initializing VectorSpace with dimensions: "
 	          << grid.Nx << " x " << grid.Ny << " x " << grid.Nz
@@ -25,6 +26,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
 		grid.p_prev[i] = 0.0f;
 		grid.flags[i] = 0; // Initialize flags to zero
         grid.p_absorb[i] = 0.0f; // Initialize p_absorb to zero
+        grid.normals[i] = 0;
 	}
 	space->resetStopwatch();
 	std::cout << "VectorSpace initialized." << std::endl;
@@ -34,7 +36,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
 
     //GPU memory allocation
     float *d_p_curr, *d_p_next, *d_p_prev, *d_p_absorb, *d_p_source;
-    uint8_t *d_flags;
+    uint8_t *d_flags, *d_normals;
     cudaError_t err;
 
     std::cout << "Allocating GPU memory for grid..." << std::endl;
@@ -83,6 +85,17 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_p_absorb);
         return;
     }
+    err = cudaMalloc((void**)&d_normals, sizeof(uint8_t) * grid.size);
+    if (err != cudaSuccess) {
+        std::cerr << "Error allocating GPU memory for normals: " << cudaGetErrorString(err) << std::endl;
+        cudaFree(d_p_curr);
+        cudaFree(d_p_next);
+        cudaFree(d_p_prev);
+        cudaFree(d_flags);
+        cudaFree(d_p_absorb);
+        cudaFree(d_p_source);
+        return;
+    }
 
     // Copy initial data from CPU to GPU
     std::cout << "Copying data from CPU to GPU..." << std::endl;
@@ -95,6 +108,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
         cudaFree(d_p_source);
+        cudaFree(d_normals);
         return;
     }
     err = cudaMemcpy(d_p_next, grid.p_next, sizeof(float) * grid.size, cudaMemcpyHostToDevice);
@@ -106,6 +120,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
         cudaFree(d_p_source);
+        cudaFree(d_normals);
         return;
     }
     err = cudaMemcpy(d_p_prev, grid.p_prev, sizeof(float) * grid.size, cudaMemcpyHostToDevice);
@@ -117,6 +132,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
         cudaFree(d_p_source);
+        cudaFree(d_normals);
         return;
     }
     err = cudaMemcpy(d_flags, grid.flags, sizeof(uint8_t) * grid.size, cudaMemcpyHostToDevice);
@@ -128,6 +144,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
         cudaFree(d_p_source);
+        cudaFree(d_normals);
         return;
     }
     err = cudaMemcpy(d_p_absorb, grid.p_absorb, sizeof(float) * grid.size, cudaMemcpyHostToDevice);
@@ -139,6 +156,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
         cudaFree(d_p_source);
+        cudaFree(d_normals);
         return;
     }
 
@@ -151,6 +169,19 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
         cudaFree(d_p_source);
+        cudaFree(d_normals);
+        return;
+    }
+    err = cudaMemcpy(d_normals, grid.normals, sizeof(uint8_t) * grid.size, cudaMemcpyHostToDevice);
+    if (err != cudaSuccess) {
+        std::cerr << "Error copying normals to GPU: " << cudaGetErrorString(err) << std::endl;
+        cudaFree(d_p_curr);
+        cudaFree(d_p_next);
+        cudaFree(d_p_prev);
+        cudaFree(d_flags);
+        cudaFree(d_p_absorb);
+        cudaFree(d_p_source);
+        cudaFree(d_normals);
         return;
     }
 
@@ -162,6 +193,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
     grid.d_p_prev = d_p_prev;
     grid.d_flags = d_flags;
     grid.d_p_absorb = d_p_absorb;
+    grid.d_normals = d_normals;
 }
 
 void fdtd_gpu_cleanup(VectorSpace* space) {

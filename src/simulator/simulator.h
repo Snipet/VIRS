@@ -51,6 +51,17 @@ public:
             std::cerr << "Warning: Audio file is not mono, using only the first channel." << std::endl;
         }
         std::cout << "Audio file loaded with " << audio_file.getNumSamplesPerChannel() << " samples at " << audio_file.getSampleRate() << " Hz." << std::endl;
+
+        //Normalize the audio data
+        float max_sample = 0.0f;
+        for (const auto& sample : audio_file.samples[0]) {
+            max_sample = std::max(max_sample, std::abs(sample));
+        }
+        if (max_sample > 0.0f) {
+            for (auto& sample : audio_file.samples[0]) {
+                sample /= max_sample; // Normalize to [-1, 1]
+            }
+        }
     }
 
 private:

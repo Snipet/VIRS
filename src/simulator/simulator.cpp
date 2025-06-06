@@ -5,6 +5,7 @@
 #include <chrono>
 #include "tbb/parallel_for.h"
 #include "simulator_dispatch.h"
+#include "normals.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -439,6 +440,77 @@ void Simulator::loadObj(const std::string &path)
     std::cout << "Absorption material computed." << std::endl;
 
     updateGPUFromGrid(vector_space.get()); // Update the GPU grid with the new material data
+
+    // Calculate normals
+    std::cout << "Calculating normals..." << std::endl;
+    for(int k = 1; k < grid.Nz - 1; ++k)
+    {
+        for(int j = 1; j < grid.Ny - 1; ++j)
+        {
+            for(int i = 1; i < grid.Nx - 1; ++i)
+            {
+                size_t idx = grid.idx(i, j, k);
+                if(grid.flags[idx] == 2){
+                    uint8_t current_normal_code = static_cast<uint8_t>(ENormals::kNone);
+
+                    //Check -x neighbor
+                    if(i - 1 >= 0 && grid.flags[grid.idx(i - 1, j, k)] == 1){
+                        current_normal_code |= static_cast<uint8_t>(ENormals::kXPositive);
+                    }
+
+                    //Check +x neighbor
+                    if(i + 1 < grid.Nx && grid.flags[grid.idx(i + 1, j, k)] == 1){
+                        current_normal_code |= static_cast<uint8_t>(ENormals::kXNegative);
+                    }
+
+                    //Check -y neighbor
+                    if(j - 1 >= 0 && grid.flags[grid.idx(i, j - 1, k)] == 1){
+                        current_normal_code |= static_cast<uint8_t>(ENormals::kYPositive);
+                    }
+
+                    //Check +y neighbor
+                    if(j + 1 < grid.Ny && grid.flags[grid.idx(i, j + 1, k)] == 1){
+                        current_normal_code |= static_cast<uint8_t>(ENormals::kYNegative);
+                    }
+
+                    //Check -z neighbor
+                    if(k - 1 >= 0 && grid.flags[grid.idx(i, j, k - 1)] == 1){
+                        current_normal_code |= static_cast<uint8_t>(ENormals::kZPositive);
+                    }
+
+                    //Check +z neighbor
+                    if(k + 1 < grid.Nz && grid.flags[grid.idx(i, j, k + 1)] == 1){
+                        current_normal_code |= static_cast<uint8_t>(ENormals::kZNegative);
+                    }
+
+                    grid.normals[idx] = current_normal_code;
+
+                    // Check for any normal errors
+                    if(grid.normals[idx] == static_cast<uint8_t>(ENormals::kNone))
+                    {
+                        std::cout << "Warning: No normals found for bounddary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                    }
+
+                    if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kXPositive)) &&
+                        (grid.normals[idx] & static_cast<uint8_t>(ENormals::kXNegative))) {
+                         std::cout << "Warning: Both X normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                    }
+
+                    if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kYPositive)) &&
+                        (grid.normals[idx] & static_cast<uint8_t>(ENormals::kYNegative))) {
+                         std::cout << "Warning: Both Y normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                    }
+
+                    if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kZPositive)) &&
+                        (grid.normals[idx] & static_cast<uint8_t>(ENormals::kZNegative))) {
+                         std::cout << "Warning: Both Z normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                    }
+                }
+            }
+        }
+    }
+
+    std::cout << "Normals calculated." << std::endl;
 
     const size_t numVerts = vertices.size() / 3;
     const size_t numTriangles = indices.size() / 3;

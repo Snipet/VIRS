@@ -97,3 +97,12 @@ void fdtd_start_simulation(VectorSpace* space, size_t steps) {
     std::memset(grid.p_audio_output, 0, sizeof(float) * grid.p_audio_output_size);
     #endif // VIRS_WITH_CUDA
 }
+
+void uploadNormalsToGPU(VectorSpace* space) {
+    #ifdef VIRS_WITH_CUDA
+    std::cout << "Uploading normals to GPU." << std::endl;
+    cudaMemcpy(space->getGrid().d_normals, space->getGrid().normals, sizeof(uint8_t) * space->getGrid().size, cudaMemcpyHostToDevice);
+    #else
+    std::cout << "No GPU support, skipping normals upload." << std::endl;
+    #endif
+}
