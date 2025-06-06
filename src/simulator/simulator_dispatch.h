@@ -18,4 +18,5 @@ void updateCurrentGridFromGPU(VectorSpace* space);
 void updateGPUFromGrid(VectorSpace* space);
 
 void uploadNormalsToGPU(VectorSpace* space);
+void uploadPZetaToGPU(VectorSpace* space);
 

@@ -222,6 +222,7 @@ bool Simulator::loadConfig(const std::string &config)
             std::cerr << "Configuration file does not contain 'image_save_interval' key. Defaulting to 10." << std::endl;
         }
         image_save_interval = j["simulation"].value("image_save_interval", 10);
+        std::cout << "Image save interval: " << image_save_interval << std::endl;
 
         // Read output images directory
         if (!j["simulation"].contains("output_images_dir"))
@@ -509,8 +510,33 @@ void Simulator::loadObj(const std::string &path)
             }
         }
     }
-
     std::cout << "Normals calculated." << std::endl;
+    uploadNormalsToGPU(vector_space.get()); // Upload normals to GPU
+
+    // Calculate pZeta
+
+    float target_Rp_magnitude = 0.9f;
+    float target_zeta = (1.f + target_Rp_magnitude) / (1.f - target_Rp_magnitude);
+
+    std::cout << "Calculating pZeta..." << std::endl;
+        for(int k = 1; k < grid.Nz - 1; ++k)
+    {
+        for(int j = 1; j < grid.Ny - 1; ++j)
+        {
+            for(int i = 1; i < grid.Nx - 1; ++i)
+            {
+                size_t idx = grid.idx(i, j, k);
+                if(grid.flags[idx] == 2){
+                    grid.pZeta[idx] = target_zeta;
+                }else{
+                    grid.pZeta[idx] = 0.f; // No pZeta for non-boundary cells
+                }
+            }
+        }
+    }
+
+    std::cout << "pZeta calculated." << std::endl;
+    uploadPZetaToGPU(vector_space.get());
 
     const size_t numVerts = vertices.size() / 3;
     const size_t numTriangles = indices.size() / 3;
@@ -815,7 +841,7 @@ void Simulator::simulate()
     {
         vector_space->layerToImage("output_layer.png", output_layer);
     }
-    unsigned int image_step = 30; // Save an image every 30 steps
+    unsigned int image_step = image_save_interval;
     for (size_t i = 0; i < num_simulation_steps; ++i)
     {
 

@@ -67,6 +67,9 @@ struct Grid
 	uint8_t *normals;
 	uint8_t *d_normals;
 
+	float *pZeta;
+	float *d_pZeta;
+
 
 	std::size_t Nx;
 	std::size_t Ny;

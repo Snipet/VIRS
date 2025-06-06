@@ -106,3 +106,12 @@ void uploadNormalsToGPU(VectorSpace* space) {
     std::cout << "No GPU support, skipping normals upload." << std::endl;
     #endif
 }
+
+void uploadPZetaToGPU(VectorSpace* space) {
+    #ifdef VIRS_WITH_CUDA
+    std::cout << "Uploading pZeta to GPU." << std::endl;
+    cudaMemcpy(space->getGrid().d_pZeta, space->getGrid().pZeta, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
+    #else
+    std::cout << "No GPU support, skipping pZeta upload." << std::endl;
+    #endif
+}
