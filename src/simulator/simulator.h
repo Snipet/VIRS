@@ -9,6 +9,7 @@
 #include <iostream>
 #include <cstring>
 #include "AudioFile.h"
+#include <nlohmann/json.hpp>
 
 struct BoundingBox {
     Vec3f min;
@@ -26,7 +27,8 @@ public:
     void render(Vec3f cameraPos, bool useGrid = false);
     void renderAnimation(std::string path, int frames, float radius);
     void doSimulationStep();
-    void simulate(size_t steps);
+    bool loadConfig(const std::string& config_path);
+    void simulate();
     size_t getGridIdxFromVecPos(const Vec3f& pos) const {
         Vec3f voxel = toVoxel(pos);
         return static_cast<size_t>(voxel.x) + static_cast<size_t>(voxel.y) * vector_space->getGrid().Nx + static_cast<size_t>(voxel.z) * vector_space->getGrid().Nx * vector_space->getGrid().Ny;
@@ -42,8 +44,13 @@ public:
         };
     }
 
-    void setSourcePath(const std::string& path) {
+    void setAudioSourcePath(const std::string& path) {
+        std::cout << "Loading audio file: " << path << std::endl;
         audio_file.load(path);
+        if (audio_file.getNumChannels() != 1) {
+            std::cerr << "Warning: Audio file is not mono, using only the first channel." << std::endl;
+        }
+        std::cout << "Audio file loaded with " << audio_file.getNumSamplesPerChannel() << " samples at " << audio_file.getSampleRate() << " Hz." << std::endl;
     }
 
 private:
@@ -59,6 +66,10 @@ private:
     float vector_box_size; //Size of individual vector box
     std::unique_ptr<VectorSpace> vector_space;
     unsigned int simulation_step;
+    size_t num_simulation_steps;
+    size_t image_save_interval;
     size_t output_layer;
     AudioFile<float> audio_file; // Audio file for the source
+    bool should_save_layer_images;
+    std::string output_images_dir;
 };

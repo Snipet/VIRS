@@ -16,6 +16,7 @@ namespace
 {
     __constant__ int d_Nx, d_Ny, d_Nz;
     __constant__ float d_inv_h2, d_c2_dt2, d_dt;
+    __constant__ float d_source_value;
 }
 
 __global__ void fdtd_kernel(const float*  __restrict pPrev,
@@ -39,12 +40,17 @@ __global__ void fdtd_kernel(const float*  __restrict pPrev,
         return; 
     }
 
+    if(flags[idx] == 3) { // Source voxel
+        pNext[idx] = d_source_value; // Set source value
+        return;
+    }
+
     float pCenter = pCurr[idx];
 
     auto V = [&](int ix,int iy,int iz)->float {
         std::size_t n = ( (std::size_t)iz * d_Ny + iy ) * d_Nx + ix;
         if(flags[n] == 1 ) {
-            return 0.0f; // Wall voxel
+            return pCenter; // Wall voxel
         }else{
             return pCurr[n]; // Normal voxel
         }
@@ -63,7 +69,7 @@ __global__ void fdtd_kernel(const float*  __restrict pPrev,
 
 extern "C"
 {
-    void fdtd_gpu_step(VectorSpace *space, float h)
+    void fdtd_gpu_step(VectorSpace *space, float h, unsigned int step)
     {
         Grid &g = space->getGrid(); // host meta
         //const std::size_t N = g.Nx * g.Ny * g.Nz;
@@ -73,12 +79,12 @@ extern "C"
         int iNx = int(g.Nx);
         int iNy = int(g.Ny);
         int iNz = int(g.Nz);
+        float c = 343.f;
+        float dt = 0.5f * h / (c * std::sqrt(3.f));
+        float c2_dt2 = c * c * dt * dt;
+        float inv_h2 = 1.f / (h * h);
         if (!constantsUploaded)
         {
-            float c = 343.f;
-            float dt = 0.5f * h / (c * std::sqrt(3.f));
-            float c2_dt2 = c * c * dt * dt;
-            float inv_h2 = 1.f / (h * h);
             cudaMemcpyToSymbol(d_Nx, &iNx, sizeof(int));
             cudaMemcpyToSymbol(d_Ny, &iNy, sizeof(int));
             cudaMemcpyToSymbol(d_Nz, &iNz, sizeof(int));
@@ -88,6 +94,38 @@ extern "C"
 
             constantsUploaded = true;
         }
+
+        size_t sample_rate = space->audio_file.getSampleRate();
+        float simulation_time = (float)step * dt; // in seconds
+        float sample_index = simulation_time * (float)sample_rate;
+        float source_value = 0.0f;
+        if(sample_index + 1.f < (float)space->audio_file.getNumSamplesPerChannel())
+        {
+            //Simple, linear interpolation for now
+            size_t bottom_index = (size_t)sample_index;
+            size_t top_index = bottom_index + 1;
+            float bottom_value = space->audio_file.samples[0][bottom_index];
+            float top_value = space->audio_file.samples[0][top_index];
+            float fraction = sample_index - (float)bottom_index;
+            source_value = bottom_value + fraction * (top_value - bottom_value);
+        }
+
+        if(step < 100){
+            //Ramp up the source value for the first 100 steps
+            source_value *= (float)step / 100.0f; // Scale the source value
+        }
+        
+        source_value *= 2.f; // Temporary amplification for testing
+
+        /* upload source value to device ------------------------------------ */
+        if (step == 0) {
+            cudaMemcpyToSymbol(d_source_value, &source_value, sizeof(float));
+        }
+        else {
+            // Update source value for subsequent steps
+            cudaMemcpyToSymbol(d_source_value, &source_value, sizeof(float), 0, cudaMemcpyHostToDevice);
+        }
+
 
         /* device pointers held inside VectorSpace -------------------------- */
         float *d_prev = g.d_p_prev;
@@ -111,6 +149,13 @@ extern "C"
         // /* swap pointers for next iteration ---------------------------------- */
         std::swap(g.d_p_prev, g.d_p_curr);
         std::swap(g.d_p_curr, g.d_p_next);
+
+        size_t read_idx = g.idx(334, 225, 270);
+
+        // Read d_p_curr[read_idx] from device to host
+        float pressure_value = 0.0f;
+        cudaMemcpy(&pressure_value, g.d_p_curr + read_idx, sizeof(float), cudaMemcpyDeviceToHost);
+        g.p_audio_output[step] = pressure_value;
     }
 
 

@@ -58,22 +58,20 @@ int main(int argc, char *argv[]) {
     //RUN SIMULATION
     if( runSimulation ) {
         Simulator* simulator = new Simulator(800, 600);
-        if (inputFile) {
-            std::cout << "Loading object from: " << args::get(inputFile) << std::endl;
-            simulator->loadObj(args::get(inputFile));
-            simulator->setSourcePath(args::get(sourceFile));
-        } else {
-            std::cerr << "No input file specified for simulation." << std::endl;
+        if(inputFile){
+            if(simulator->loadConfig(args::get(inputFile))){
+                std::cout << "Loaded simulation configuration from: " << args::get(inputFile) << std::endl;
+            }else{
+                std::cerr << "Failed to load simulation configuration from: " << args::get(inputFile) << std::endl;
+                delete simulator;
+                return 1;
+            }
+        }else{
+            std::cerr << "No config file specified for simulation." << std::endl;
             return 1;
         }
 
-        if(outputLayer) {
-            std::cout << "Setting output layer to: " << args::get(outputLayer) << std::endl;
-            simulator->setOutputLayer(args::get(outputLayer));
-        }
-
-        std::cout << "Running simulation for " << args::get(frames) << " frames." << std::endl;
-        simulator->simulate(args::get(frames));
+        simulator->simulate();
         delete simulator;
     }
 

@@ -2,7 +2,7 @@
 #include <cuda_runtime.h>
 #include "vectorspace.h"
 
-constexpr int N   = 16;                            // absorptionWidth
+constexpr int N   = 1;                            // absorptionWidth
 constexpr float EPS = 1.0f / float(N);            // 1/N
 
 __global__ void spongeKernel(const uint8_t*   __restrict flags,

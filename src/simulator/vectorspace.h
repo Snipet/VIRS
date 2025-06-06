@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <chrono>
 #include <string>
+#include "AudioFile.h"
 
 struct Vec3f
 {
@@ -70,6 +71,9 @@ struct Grid
 	std::size_t size;
 
 	std::size_t p_source_size;
+
+	float* p_audio_output;
+	size_t p_audio_output_size;
 
 	// Flattened index: z‑major for unit‑stride in innermost loop
 	inline size_t idx(size_t x, size_t y, size_t z)
@@ -151,7 +155,7 @@ struct Grid
 class VectorSpace
 {
 public:
-	VectorSpace(std::size_t x, std::size_t y, std::size_t z, size_t source_size, float h);
+	VectorSpace(size_t x, size_t y, size_t z, const AudioFile<float>& audio_file, float h);
 	~VectorSpace();
 	float getMemoryUsageGB();
 	void computePressureStage();
@@ -195,6 +199,7 @@ public:
 	}
 
 	float h;
+	AudioFile<float> audio_file;
 private:
 	Grid grid;
 	float current_pressure;

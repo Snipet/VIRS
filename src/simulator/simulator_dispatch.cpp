@@ -18,10 +18,10 @@ void fdtd_setup(VectorSpace* space) {
     #endif
 }
 
-void fdtd_step(VectorSpace* space) {
+void fdtd_step(VectorSpace* space, unsigned int step) {
     #ifdef VIRS_WITH_CUDA
     //std::cout << "Performing FDTD step on GPU." << std::endl;
-    fdtd_gpu_step(space, space->h);
+    fdtd_gpu_step(space, space->h, step);
     #else
     fdtd_cpu_step(space, space->h);
     #endif
@@ -87,4 +87,13 @@ void buildSpongeLayer(VectorSpace* space) {
     std::cout << "Building sponge layer on CPU." << std::endl;
     // Implement CPU version if needed
     #endif
+}
+
+void fdtd_start_simulation(VectorSpace* space, size_t steps) {
+    #ifdef VIRS_WITH_CUDA
+    Grid &grid = space->getGrid();
+    grid.p_audio_output_size = steps;
+    grid.p_audio_output = new float[grid.p_audio_output_size];
+    std::memset(grid.p_audio_output, 0, sizeof(float) * grid.p_audio_output_size);
+    #endif // VIRS_WITH_CUDA
 }

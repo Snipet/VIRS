@@ -33,6 +33,7 @@ target_include_directories(VIRS PRIVATE
     third_party/tinyobjloader
     third_party/libpng
     third_party/AudioFile
+    third_party/json/include
 )
 
 target_compile_options(VIRS PRIVATE

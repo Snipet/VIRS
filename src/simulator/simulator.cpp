@@ -154,7 +154,98 @@ Simulator::Simulator(unsigned int w, unsigned int h)
     {
         std::cerr << "Failed to create Embree device" << std::endl;
     }
+}
 
+bool Simulator::loadConfig(const std::string &config)
+{
+    // Load configuration from a JSON file
+    std::ifstream config_file(config);
+    if (!config_file.is_open())
+    {
+        std::cerr << "Failed to open configuration file: " << config << std::endl;
+        return false;
+    }
+
+    nlohmann::json j;
+    config_file >> j;
+
+    std::cout << "Reading configuration from: " << config << std::endl;
+
+    // Check if the files subkey exists
+    if (!j.contains("files"))
+    {
+        std::cerr << "Configuration file does not contain 'files' key." << std::endl;
+        return false;
+    }
+
+    // Read meshfile
+    std::string meshfilePath = j["files"].value("meshfile", "");
+    if (meshfilePath.empty())
+    {
+        std::cerr << "Configuration file does not contain 'meshfile' key." << std::endl;
+        return false;
+    }
+
+    // Read audio file path
+    std::string audioPath = j["files"].value("audiofile", "");
+    if (audioPath.empty())
+    {
+        std::cerr << "Configuration file does not contain 'audiofile' key." << std::endl;
+        return false;
+    }
+
+    // Read simulation parameters
+    if (!j.contains("simulation"))
+    {
+        std::cerr << "Configuration file does not contain 'simulation' key." << std::endl;
+        return false;
+    }
+
+    // Read num simulation steps
+    if (!j["simulation"].contains("num_simulation_steps"))
+    {
+        std::cerr << "Configuration file does not contain 'num_simulation_steps' key." << std::endl;
+        return false;
+    }
+    num_simulation_steps = j["simulation"]["num_simulation_steps"].get<size_t>();
+    std::cout << "Number of simulation steps: " << num_simulation_steps << std::endl;
+
+    // Read should save layer images
+    should_save_layer_images = false;
+    if (j["simulation"].contains("should_save_layer_images"))
+    {
+        should_save_layer_images = j["simulation"]["should_save_layer_images"].get<bool>();
+        // Read image save interval
+        if (!j["simulation"].contains("image_save_interval"))
+        {
+            std::cerr << "Configuration file does not contain 'image_save_interval' key. Defaulting to 10." << std::endl;
+        }
+        image_save_interval = j["simulation"].value("image_save_interval", 10);
+
+        // Read output images directory
+        if (!j["simulation"].contains("output_images_dir"))
+        {
+            std::cerr << "Configuration file does not contain 'output_images_dir' key." << std::endl;
+            return false;
+        }
+        else
+        {
+            output_images_dir = j["simulation"]["output_images_dir"].get<std::string>();
+        }
+    }
+
+    // Read output layer
+    if (!j["simulation"].contains("output_layer"))
+    {
+        std::cerr << "Configuration file does not contain 'output_layer' key. Defaulting to 100." << std::endl;
+    }
+    output_layer = j["simulation"].value("output_layer", 100);
+
+    // Load the object file
+    setAudioSourcePath(audioPath);
+    loadObj(meshfilePath);
+
+    return true;
 }
 
 void Simulator::loadObj(const std::string &path)
@@ -169,13 +260,18 @@ void Simulator::loadObj(const std::string &path)
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, object_path.c_str()))
+
+    std::string material_dir = object_path.substr(0, object_path.find_last_of('/'));
+    std::cout << "Material directory: " << material_dir << std::endl;
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, object_path.c_str(), material_dir.c_str()))
     {
         std::cerr << warn << err << std::endl;
     }
 
-    std::vector<float> vertices;       // flat array xyzxyz...
-    std::vector<unsigned int> indices; // index triples
+    std::vector<float> vertices;             // flat array xyzxyz...
+    std::vector<unsigned int> indices;       // index triples
+    std::vector<unsigned int> materials_ids; // per-face material IDs
 
     // Determine bounding box;
     bounding_box.min = {std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
@@ -213,11 +309,11 @@ void Simulator::loadObj(const std::string &path)
     size_t sizex = spanx * num_vectors_meter;
     size_t sizey = spany * num_vectors_meter;
     size_t sizez = spanz * num_vectors_meter;
-
+    std::vector<int> existing_material_ids;
     std::cout << "Vector box size: " << vector_box_size << "m, size in vectors: (" << sizex << ", " << sizey << ", " << sizez << ")" << std::endl;
     size_t memory_usage_bytes = sizex * sizey * sizez * sizeof(float) * 3; // 3 floats per vector
 
-    vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, audio_file.getNumSamplesPerChannel(), vector_box_size);
+    vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, audio_file, vector_box_size);
     fdtd_setup(vector_space.get());
 
     for (const auto &shape : shapes)
@@ -231,6 +327,7 @@ void Simulator::loadObj(const std::string &path)
                 index_offset += shape.mesh.num_face_vertices[f];
                 continue;
             }
+
             for (int v = 0; v < 3; ++v)
             {
                 tinyobj::index_t idx = shape.mesh.indices[index_offset + v];
@@ -239,12 +336,33 @@ void Simulator::loadObj(const std::string &path)
                 vertices.push_back(attrib.vertices[3 * idx.vertex_index + 2]);
                 indices.push_back(static_cast<unsigned int>(indices.size()));
             }
+            // Store material ID for the face
+            if (f < shape.mesh.material_ids.size())
+            {
+                materials_ids.push_back(shape.mesh.material_ids[f]);
+                if (std::find(existing_material_ids.begin(), existing_material_ids.end(), shape.mesh.material_ids[f]) == existing_material_ids.end())
+                {
+                    existing_material_ids.push_back(shape.mesh.material_ids[f]);
+                }
+            }
+            else
+            {
+                materials_ids.push_back(-1); // Default material ID if not specified
+            }
             index_offset += 3;
         }
     }
 
     // Compute cell materials based on the imported mesh
     Grid &grid = vector_space->getGrid();
+
+    std::cout << "Found " << existing_material_ids.size() << " unique materials." << std::endl;
+    std::cout << "Material ids:";
+    for (const auto &id : existing_material_ids)
+    {
+        std::cout << " " << id;
+    }
+    std::cout << std::endl;
 
     // Iterate over every triangle and compute the material for each cell
     for (size_t s = 0; s < indices.size(); s += 3)
@@ -256,6 +374,8 @@ void Simulator::loadObj(const std::string &path)
         Vec3f v0{vertices[idx0 * 3], vertices[idx0 * 3 + 1], vertices[idx0 * 3 + 2]};
         Vec3f v1{vertices[idx1 * 3], vertices[idx1 * 3 + 1], vertices[idx1 * 3 + 2]};
         Vec3f v2{vertices[idx2 * 3], vertices[idx2 * 3 + 1], vertices[idx2 * 3 + 2]};
+
+        int material_id = materials_ids[s / 3]; // Get the material ID for the triangle
 
         Vec3f gv0 = toVoxel(v0);
         Vec3f gv1 = toVoxel(v1);
@@ -269,8 +389,9 @@ void Simulator::loadObj(const std::string &path)
         int iyMax = std::clamp(int(std::ceil(std::max({gv0.y, gv1.y, gv2.y}))), 0, int(grid.Ny) - 1);
         int izMax = std::clamp(int(std::ceil(std::max({gv0.z, gv1.z, gv2.z}))), 0, int(grid.Nz) - 1);
 
-        std::cout << "Triangle AABB: (" << ixMin << ", " << iyMin << ", " << izMin
-                  << ") to (" << ixMax << ", " << iyMax << ", " << izMax << ")" << std::endl;
+        // std::cout << "Triangle AABB: (" << ixMin << ", " << iyMin << ", " << izMin
+        //           << ") to (" << ixMax << ", " << iyMax << ", " << izMax << ")" << std::endl;
+        // std::cout << "Material id: " << material_id << std::endl;
 
         // Sweep through box
         for (int k = izMin; k <= izMax; ++k)
@@ -285,8 +406,18 @@ void Simulator::loadObj(const std::string &path)
                     if (triangleBoxOverlap3(gv0, gv1, gv2, boxMin, boxMax))
                     {
                         size_t idx = grid.idx(i, j, k);
-                        grid.flags[idx] = 1; // Mark the cell as occupied
-                        grid.p_absorb[idx] = 2000.f;
+                        // Set the material for the grid cell
+                        if (material_id == 0)
+                        {
+                            // Wall
+                            grid.flags[idx] = 1;
+                            grid.p_absorb[idx] = 0.f;
+                        }
+                        else if (material_id == 1)
+                        {
+                            // Speaker
+                            grid.flags[idx] = 3;
+                        }
                     }
                 }
     }
@@ -584,11 +715,11 @@ void Simulator::doSimulationStep()
 {
     std::cout << "\rPerforming simulation step " << simulation_step << "... Last step took: " << vector_space->stopwatch() << std::flush;
     // vector_space->computePressureStage();
-    fdtd_step(vector_space.get());
+    fdtd_step(vector_space.get(), simulation_step);
     simulation_step++;
 }
 
-void Simulator::simulate(size_t steps)
+void Simulator::simulate()
 {
     simulation_step = 0;
     Grid &grid = vector_space->getGrid();
@@ -604,60 +735,104 @@ void Simulator::simulate(size_t steps)
     std::cout << "Simulation parameters: c = " << c << " m/s, h = " << h << " m, dt = " << dt << " s, c2_dt2 = " << c2_dt2 << ", gdt = " << gdt << ", inv_h2 = " << inv_h2 << std::endl;
 
     auto start = std::chrono::high_resolution_clock::now();
-    std::cout << "Starting simulation with " << steps << " steps..." << std::endl;
-    initPressureSphere(vector_space.get(), centerx, centery, centerz, 20, 1.f, true); // Initialize a pressure sphere in the center of the grid
+    std::cout << "Starting simulation with " << num_simulation_steps << " steps..." << std::endl;
+    fdtd_start_simulation(vector_space.get(), num_simulation_steps);
+    // initPressureSphere(vector_space.get(), centerx, centery, centerz, 20, 1.f, true); // Initialize a pressure sphere in the center of the grid
     updateCurrentGridFromGPU(vector_space.get());
-    vector_space->layerToImage("output_layer.png", output_layer);
-    for (size_t i = 0; i < steps; ++i)
+    if (true)
     {
-        float phase = static_cast<float>(simulation_step) / 120.f * 2.f * M_PI;
-        float phase2 = static_cast<float>(simulation_step) / 231.f * 2.f * M_PI;
-        float pressure = std::sin(phase) * std::sin(phase2) * 0.5f + 0.5f; // Pressure oscillates between 0 and 1
-        pressure = pressure * pressure;                                    // Square the pressure to make it more pronounced
-        if (simulation_step > 1000)
-        {
-            pressure = pressure * (1.f - static_cast<float>(std::min(simulation_step - 1000, 200u)) / 200.f); // Pressure decreases over time
-        }
-
-        if (simulation_step <= 1200)
-        {
-            initPressureSphere(vector_space.get(), centerx, centery, centerz, 20, pressure, false);
-        }
+        vector_space->layerToImage("output_layer.png", output_layer);
+    }
+    unsigned int image_step = 30; // Save an image every 30 steps
+    for (size_t i = 0; i < num_simulation_steps; ++i)
+    {
 
         doSimulationStep();
-        std::string file_out = "output/output_step_";
-        if(i % 10 == 0){
-            int frame = i / 10;
-            if(frame < 10) {
-            file_out += "00000" + std::to_string(frame) + ".png";
-            } else if (frame < 100) {
-                file_out += "0000" + std::to_string(frame) + ".png";
-            } else if (frame < 1000) {
-                file_out += "000" + std::to_string(frame) + ".png";
-            } else if (frame < 10000) {
-                file_out += "00" + std::to_string(frame) + ".png";
-            } else if (frame < 100000) {
-                file_out += "0" + std::to_string(frame) + ".png";
-            } else {
-                file_out += std::to_string(frame) + ".png";
+        if (should_save_layer_images)
+        {
+            std::string file_out = output_images_dir + "/output_step_";
+
+            if (i % image_step == 0)
+            {
+                int frame = i / image_step;
+                if (frame < 10)
+                {
+                    file_out += "00000" + std::to_string(frame) + ".png";
+                }
+                else if (frame < 100)
+                {
+                    file_out += "0000" + std::to_string(frame) + ".png";
+                }
+                else if (frame < 1000)
+                {
+                    file_out += "000" + std::to_string(frame) + ".png";
+                }
+                else if (frame < 10000)
+                {
+                    file_out += "00" + std::to_string(frame) + ".png";
+                }
+                else if (frame < 100000)
+                {
+                    file_out += "0" + std::to_string(frame) + ".png";
+                }
+                else
+                {
+                    file_out += std::to_string(frame) + ".png";
+                }
+                updateCurrentGridFromGPU(vector_space.get());
+                vector_space->layerToImage(file_out, output_layer);
             }
-        updateCurrentGridFromGPU(vector_space.get());
-        vector_space->layerToImage(file_out, output_layer);
-        //renderImageToFile({7.f, 7.f, 7.f}, file_out, true);
         }
     }
     // initPressureSphere(vector_space.get(), centerx, centery, centerz, 100, 1.f, true);
     updateCurrentGridFromGPU(vector_space.get());
 
+    // We now have the raw pressures from the simulation. However, we must convert them to audio data.
+    float *out_audio_data = vector_space->getGrid().p_audio_output;
+    AudioFile<float> out_file;
+    unsigned int sample_rate = 44100;
+    out_file.setSampleRate(sample_rate);
+    out_file.setBitDepth(32);
+    out_file.setNumChannels(1);
+    float length_seconds = (float)num_simulation_steps * dt;
+    size_t num_samples = (float)sample_rate * length_seconds;
+    out_file.setNumSamplesPerChannel(num_samples);
+    std::cout << "Writing audio file with " << num_samples << " samples, length: " << length_seconds << " seconds." << std::endl;
+
+    std::vector<std::vector<float>> audio_data;
+    audio_data.resize(1); // 1 channel
+    audio_data[0].resize(num_samples, 0.f); // Initialize with zeros
+    float simulation_sample_rate = 1.f / dt;
+    for (int i = 0; i < num_samples; i++)
+    {
+        float t = (float)i / (float)sample_rate;
+        float index = t * simulation_sample_rate;
+        size_t bottom_idx = static_cast<size_t>(std::floor(index));
+        size_t top_idx = bottom_idx + 1;
+        float frac = index - (float)bottom_idx;
+        float bottom_value = out_audio_data[bottom_idx];
+        float top_value = out_audio_data[top_idx];
+        float value = bottom_value * (1.f - frac) + top_value * frac; // Linear interpolation
+        audio_data[0][i] = value;
+    }
+
+    out_file.setAudioBuffer(audio_data);
+
+    out_file.save("output_audio.wav");
+    std::cout << "Audio data written to output_audio.wav" << std::endl;
+
     // Now p_curr contains the final pressure values, we can render the final image
     // renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);
 
-    std::cout << "Simulation completed after " << steps << " steps." << std::endl;
+    std::cout << "Simulation completed after " << num_simulation_steps << " steps." << std::endl;
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cout << "Total simulation time: " << duration << " ms" << std::endl;
     // renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);
 
-    vector_space->layerToImage("output_layer_after.png", output_layer);
+    if (true)
+    {
+        vector_space->layerToImage("output_layer_after.png", output_layer);
+    }
     // vector_space->gridToImages("output/output_grid_");
 }

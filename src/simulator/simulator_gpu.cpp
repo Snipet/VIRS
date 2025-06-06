@@ -14,6 +14,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
 	grid.p_prev = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
 	grid.flags = static_cast<uint8_t*>(aligned_alloc(ALIGN, sizeof(uint8_t) * grid.size));
     grid.p_absorb = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
+    grid.p_source = space->audio_file.samples[0].data(); // Assuming audio_file is already loaded
 	
 	std::cout << "Initializing VectorSpace with dimensions: "
 	          << grid.Nx << " x " << grid.Ny << " x " << grid.Nz
@@ -32,7 +33,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
     space->resetStopwatch();
 
     //GPU memory allocation
-    float *d_p_curr, *d_p_next, *d_p_prev, *d_p_absorb;
+    float *d_p_curr, *d_p_next, *d_p_prev, *d_p_absorb, *d_p_source;
     uint8_t *d_flags;
     cudaError_t err;
 
@@ -72,6 +73,16 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_flags);
         return;
     }
+    err = cudaMalloc((void**)&d_p_source, sizeof(float) * grid.p_source_size);
+    if (err != cudaSuccess) {
+        std::cerr << "Error allocating GPU memory for p_source: " << cudaGetErrorString(err) << std::endl;
+        cudaFree(d_p_curr);
+        cudaFree(d_p_next);
+        cudaFree(d_p_prev);
+        cudaFree(d_flags);
+        cudaFree(d_p_absorb);
+        return;
+    }
 
     // Copy initial data from CPU to GPU
     std::cout << "Copying data from CPU to GPU..." << std::endl;
@@ -83,7 +94,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_p_prev);
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
-
+        cudaFree(d_p_source);
         return;
     }
     err = cudaMemcpy(d_p_next, grid.p_next, sizeof(float) * grid.size, cudaMemcpyHostToDevice);
@@ -94,6 +105,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_p_prev);
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
+        cudaFree(d_p_source);
         return;
     }
     err = cudaMemcpy(d_p_prev, grid.p_prev, sizeof(float) * grid.size, cudaMemcpyHostToDevice);
@@ -104,6 +116,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_p_prev);
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
+        cudaFree(d_p_source);
         return;
     }
     err = cudaMemcpy(d_flags, grid.flags, sizeof(uint8_t) * grid.size, cudaMemcpyHostToDevice);
@@ -114,6 +127,7 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_p_prev);
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
+        cudaFree(d_p_source);
         return;
     }
     err = cudaMemcpy(d_p_absorb, grid.p_absorb, sizeof(float) * grid.size, cudaMemcpyHostToDevice);
@@ -124,6 +138,19 @@ void fdtd_gpu_setup(VectorSpace* space) {
         cudaFree(d_p_prev);
         cudaFree(d_flags);
         cudaFree(d_p_absorb);
+        cudaFree(d_p_source);
+        return;
+    }
+
+    err = cudaMemcpy(d_p_source, grid.p_source, sizeof(float) * grid.p_source_size, cudaMemcpyHostToDevice);
+    if (err != cudaSuccess) {
+        std::cerr << "Error copying p_source to GPU: " << cudaGetErrorString(err) << std::endl;
+        cudaFree(d_p_curr);
+        cudaFree(d_p_next);
+        cudaFree(d_p_prev);
+        cudaFree(d_flags);
+        cudaFree(d_p_absorb);
+        cudaFree(d_p_source);
         return;
     }
 
@@ -146,17 +173,20 @@ void fdtd_gpu_cleanup(VectorSpace* space) {
     cudaFree(grid.d_p_prev);
     cudaFree(grid.d_flags);
     cudaFree(grid.d_p_absorb);
+    cudaFree(grid.d_p_source);
 
     delete[] grid.p_curr;
     delete[] grid.p_next;
     delete[] grid.p_prev;
     delete[] grid.flags;
     delete[] grid.p_absorb;
+    delete[] grid.p_audio_output;
     grid.p_curr = nullptr;
     grid.p_next = nullptr;
     grid.p_prev = nullptr;
     grid.flags = nullptr;
     grid.p_absorb = nullptr;
+    grid.p_source = nullptr;
 
     std::cout << "GPU and CPU memory cleaned up successfully." << std::endl;
 }

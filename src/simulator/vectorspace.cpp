@@ -5,11 +5,12 @@
 #include "../util/image.h"
 #include <cstring>
 
-VectorSpace::VectorSpace(size_t x, size_t y, size_t z, size_t source_size, float h) : h(h) {
+VectorSpace::VectorSpace(size_t x, size_t y, size_t z, const AudioFile<float>& audio_file, float h) : h(h) {
 	grid.Nx = x;
 	grid.Ny = y;
 	grid.Nz = z;
-	grid.p_source_size = source_size;
+	grid.p_source_size = audio_file.getNumSamplesPerChannel();
+	this->audio_file = audio_file;
 
 	grid.size = grid.Nx * grid.Ny * grid.Nz;
 	// constexpr size_t ALIGN = 64;
@@ -113,7 +114,7 @@ void VectorSpace::layerToImage(const std::string& out, std::size_t layer)
 				unsigned char red  = 0;
 				unsigned char blue = 0;
 				unsigned char green = 0;
-				if(flag == 1){
+				if(flag == 1 || flag == 3) {
 					green = 255;
 				}
 				// }else if (flag == 2) {

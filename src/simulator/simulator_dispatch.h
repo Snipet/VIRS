@@ -2,8 +2,9 @@
 #include "vectorspace.h"
 
 void fdtd_setup(VectorSpace* space);
-void fdtd_step(VectorSpace* space);
+void fdtd_step(VectorSpace* space, unsigned int step);
 void fdtd_cleanup(VectorSpace* space);
+void fdtd_start_simulation(VectorSpace* space, size_t steps);
 void initPressureSphere(VectorSpace* space, size_t xpos, size_t ypos, size_t zpos, size_t radius, float pressure, bool init);
 void buildSpongeLayer(VectorSpace* space);
 
