@@ -4,15 +4,14 @@
 
 int main(int argc, char *argv[]) {
     args::ArgumentParser parser("Virtual Impulse Response Synthesizer");
-    args::HelpFlag help(parser, "help", "Display help menu", { 'h', "help" });
-    args::Flag renderScene(parser, "renderscene", "Render a scene to an image file", { "render-scene" });
-    args::Flag runSimulation(parser, "runsimulation", "Run a simulation", { "run-simulation" });
-    args::Flag testLoadObj(parser, "testloadobj", "Test loading an OBJ file", { "test-load-obj" });
-    args::ValueFlag<std::string> outputFile(parser, "output", "Output file name", { 'o', "output" });
-    args::ValueFlag<std::string> inputFile(parser, "input", "Input file name", { 'i', "input" });
-    args::ValueFlag<std::string> sourceFile(parser, "source", "Source file name", { 's', "source" });
-    args::ValueFlag<int> frames(parser, "frames", "Number of simulation frames", { 'f', "frames" }, 100);
-    args::ValueFlag<int> outputLayer(parser, "layer", "Output layer for rendering", { 'l', "layer" }, 150);
+    args::Group commands(parser, "commands");
+    args::Command simulateCommand(commands, "simulate", "Run a simulation");
+    args::Command renderSceneCommand(commands, "renderscene", "Render a scene to an image file");
+    args::Group arguments(parser, "arguments",args::Group::Validators::DontCare, args::Options::Global);
+    args::HelpFlag help(arguments, "help", "Display help menu", { 'h', "help" });
+    args::ValueFlag<std::string> outputFile(arguments, "output", "Output file name", { 'o', "output" });
+    args::ValueFlag<std::string> inputFile(arguments, "input", "Input file name", { 'i', "input" });
+
     try
     {
         parser.ParseCLI(argc, argv);
@@ -35,11 +34,10 @@ int main(int argc, char *argv[]) {
     }
 
     //RENDER SCENE
-    if( renderScene ) {
-        Simulator* simulator = new Simulator(800, 600);
+    if( renderSceneCommand ) {
+        Simulator* simulator = new Simulator(1920, 1080);
         if (inputFile) {
-            std::cout << "Loading object from: " << args::get(inputFile) << std::endl;
-            simulator->loadObj(args::get(inputFile));
+            simulator->loadConfig(args::get(inputFile), false);
         } else {
             std::cerr << "No input file specified for rendering." << std::endl;
             return 1;
@@ -56,7 +54,7 @@ int main(int argc, char *argv[]) {
     }
 
     //RUN SIMULATION
-    if( runSimulation ) {
+    if( simulateCommand ) {
         Simulator* simulator = new Simulator(800, 600);
         if(inputFile){
             if(simulator->loadConfig(args::get(inputFile))){
@@ -72,19 +70,6 @@ int main(int argc, char *argv[]) {
         }
 
         simulator->simulate();
-        delete simulator;
-    }
-
-    if(testLoadObj){
-        Simulator* simulator = new Simulator(800, 600);
-        if (inputFile) {
-            std::cout << "Loading object from: " << args::get(inputFile) << std::endl;
-            simulator->loadObj(args::get(inputFile));
-        } else {
-            std::cerr << "No input file specified for simulation." << std::endl;
-            return 1;
-        }
-
         delete simulator;
     }
     return 0;

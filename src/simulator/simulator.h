@@ -21,13 +21,13 @@ public:
     Simulator(unsigned int width, unsigned int height);
     ~Simulator();
     std::string toString();
-    void loadObj(const std::string& path);
+    void loadObj(const std::string& path, bool forSimulation = true);
     void renderImageToFile(Vec3f cameraPos, const std::string& output_path, bool useGrid = false);
     void renderImageToMemory(Vec3f cameraPos, unsigned char** out, size_t* out_size);
     void render(Vec3f cameraPos, bool useGrid = false);
     void renderAnimation(std::string path, int frames, float radius);
     void doSimulationStep();
-    bool loadConfig(const std::string& config_path);
+    bool loadConfig(const std::string& config_path, bool forSimulation = true);
     void simulate();
     size_t getGridIdxFromVecPos(const Vec3f& pos) const {
         Vec3f voxel = toVoxel(pos);

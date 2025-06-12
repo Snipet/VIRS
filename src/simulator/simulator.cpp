@@ -157,7 +157,7 @@ Simulator::Simulator(unsigned int w, unsigned int h)
     }
 }
 
-bool Simulator::loadConfig(const std::string &config)
+bool Simulator::loadConfig(const std::string &config, bool forSimulation)
 {
     // Load configuration from a JSON file
     std::ifstream config_file(config);
@@ -187,6 +187,7 @@ bool Simulator::loadConfig(const std::string &config)
         return false;
     }
 
+    
     // Read audio file path
     std::string audioPath = j["files"].value("audiofile", "");
     if (audioPath.empty())
@@ -196,61 +197,64 @@ bool Simulator::loadConfig(const std::string &config)
     }
 
     // Read simulation parameters
-    if (!j.contains("simulation"))
-    {
-        std::cerr << "Configuration file does not contain 'simulation' key." << std::endl;
-        return false;
-    }
-
-    // Read num simulation steps
-    if (!j["simulation"].contains("num_simulation_steps"))
-    {
-        std::cerr << "Configuration file does not contain 'num_simulation_steps' key." << std::endl;
-        return false;
-    }
-    num_simulation_steps = j["simulation"]["num_simulation_steps"].get<size_t>();
-    std::cout << "Number of simulation steps: " << num_simulation_steps << std::endl;
-
-    // Read should save layer images
-    should_save_layer_images = false;
-    if (j["simulation"].contains("should_save_layer_images"))
-    {
-        should_save_layer_images = j["simulation"]["should_save_layer_images"].get<bool>();
-        // Read image save interval
-        if (!j["simulation"].contains("image_save_interval"))
+    if(forSimulation){
+        if (!j.contains("simulation"))
         {
-            std::cerr << "Configuration file does not contain 'image_save_interval' key. Defaulting to 10." << std::endl;
-        }
-        image_save_interval = j["simulation"].value("image_save_interval", 10);
-        std::cout << "Image save interval: " << image_save_interval << std::endl;
-
-        // Read output images directory
-        if (!j["simulation"].contains("output_images_dir"))
-        {
-            std::cerr << "Configuration file does not contain 'output_images_dir' key." << std::endl;
+            std::cerr << "Configuration file does not contain 'simulation' key." << std::endl;
             return false;
         }
-        else
+
+        // Read num simulation steps
+        if (!j["simulation"].contains("num_simulation_steps"))
         {
-            output_images_dir = j["simulation"]["output_images_dir"].get<std::string>();
+            std::cerr << "Configuration file does not contain 'num_simulation_steps' key." << std::endl;
+            return false;
         }
-    }
+        num_simulation_steps = j["simulation"]["num_simulation_steps"].get<size_t>();
+        std::cout << "Number of simulation steps: " << num_simulation_steps << std::endl;
 
-    // Read output layer
-    if (!j["simulation"].contains("output_layer"))
-    {
-        std::cerr << "Configuration file does not contain 'output_layer' key. Defaulting to 100." << std::endl;
-    }
-    output_layer = j["simulation"].value("output_layer", 100);
+        // Read should save layer images
+        should_save_layer_images = false;
+        if (j["simulation"].contains("should_save_layer_images"))
+        {
+            should_save_layer_images = j["simulation"]["should_save_layer_images"].get<bool>();
+            // Read image save interval
+            if (!j["simulation"].contains("image_save_interval"))
+            {
+                std::cerr << "Configuration file does not contain 'image_save_interval' key. Defaulting to 10." << std::endl;
+            }
+            image_save_interval = j["simulation"].value("image_save_interval", 10);
+            std::cout << "Image save interval: " << image_save_interval << std::endl;
 
-    // Load the object file
-    setAudioSourcePath(audioPath);
-    loadObj(meshfilePath);
+            // Read output images directory
+            if (!j["simulation"].contains("output_images_dir"))
+            {
+                std::cerr << "Configuration file does not contain 'output_images_dir' key." << std::endl;
+                return false;
+            }
+            else
+            {
+                output_images_dir = j["simulation"]["output_images_dir"].get<std::string>();
+            }
+        }
+
+        // Read output layer
+        if (!j["simulation"].contains("output_layer"))
+        {
+            std::cerr << "Configuration file does not contain 'output_layer' key. Defaulting to 100." << std::endl;
+        }
+        output_layer = j["simulation"].value("output_layer", 100);
+
+        // Load the object file
+        setAudioSourcePath(audioPath);
+    } // if(forSimulation){
+
+    loadObj(meshfilePath, forSimulation);
 
     return true;
 }
 
-void Simulator::loadObj(const std::string &path)
+void Simulator::loadObj(const std::string &path, bool forSimulation)
 {
 
     scene = rtcNewScene(device);
@@ -315,8 +319,10 @@ void Simulator::loadObj(const std::string &path)
     std::cout << "Vector box size: " << vector_box_size << "m, size in vectors: (" << sizex << ", " << sizey << ", " << sizez << ")" << std::endl;
     size_t memory_usage_bytes = sizex * sizey * sizez * sizeof(float) * 3; // 3 floats per vector
 
-    vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, audio_file, vector_box_size);
-    fdtd_setup(vector_space.get());
+    if(forSimulation){
+        vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, audio_file, vector_box_size);
+        fdtd_setup(vector_space.get());
+    }
 
     for (const auto &shape : shapes)
     {
@@ -355,188 +361,190 @@ void Simulator::loadObj(const std::string &path)
         }
     }
 
-    // Compute cell materials based on the imported mesh
-    Grid &grid = vector_space->getGrid();
+    if(forSimulation){
+        // Compute cell materials based on the imported mesh
+        Grid &grid = vector_space->getGrid();
 
-    std::cout << "Found " << existing_material_ids.size() << " unique materials." << std::endl;
-    std::cout << "Material ids:";
-    for (const auto &id : existing_material_ids)
-    {
-        std::cout << " " << id;
-    }
-    std::cout << std::endl;
-
-    // Iterate over every triangle and compute the material for each cell
-    for (size_t s = 0; s < indices.size(); s += 3)
-    {
-        unsigned int idx0 = indices[s];
-        unsigned int idx1 = indices[s + 1];
-        unsigned int idx2 = indices[s + 2];
-
-        Vec3f v0{vertices[idx0 * 3], vertices[idx0 * 3 + 1], vertices[idx0 * 3 + 2]};
-        Vec3f v1{vertices[idx1 * 3], vertices[idx1 * 3 + 1], vertices[idx1 * 3 + 2]};
-        Vec3f v2{vertices[idx2 * 3], vertices[idx2 * 3 + 1], vertices[idx2 * 3 + 2]};
-
-        int material_id = materials_ids[s / 3]; // Get the material ID for the triangle
-
-        Vec3f gv0 = toVoxel(v0);
-        Vec3f gv1 = toVoxel(v1);
-        Vec3f gv2 = toVoxel(v2);
-
-        // Compute AABB for the triangle
-        int ixMin = std::clamp(int(std::floor(std::min({gv0.x, gv1.x, gv2.x}))), 0, int(grid.Nx) - 1);
-        int iyMin = std::clamp(int(std::floor(std::min({gv0.y, gv1.y, gv2.y}))), 0, int(grid.Ny) - 1);
-        int izMin = std::clamp(int(std::floor(std::min({gv0.z, gv1.z, gv2.z}))), 0, int(grid.Nz) - 1);
-        int ixMax = std::clamp(int(std::ceil(std::max({gv0.x, gv1.x, gv2.x}))), 0, int(grid.Nx) - 1);
-        int iyMax = std::clamp(int(std::ceil(std::max({gv0.y, gv1.y, gv2.y}))), 0, int(grid.Ny) - 1);
-        int izMax = std::clamp(int(std::ceil(std::max({gv0.z, gv1.z, gv2.z}))), 0, int(grid.Nz) - 1);
-
-        // std::cout << "Triangle AABB: (" << ixMin << ", " << iyMin << ", " << izMin
-        //           << ") to (" << ixMax << ", " << iyMax << ", " << izMax << ")" << std::endl;
-        // std::cout << "Material id: " << material_id << std::endl;
-
-        // Sweep through box
-        for (int k = izMin; k <= izMax; ++k)
-            for (int j = iyMin; j <= iyMax; ++j)
-                for (int i = ixMin; i <= ixMax; ++i)
-                {
-
-                    Vec3f boxMin(i, j, k);
-                    Vec3f boxMax(i + 1.f, j + 1.f, k + 1.f);
-
-                    // Check if the triangle intersects the box
-                    if (triangleBoxOverlap3(gv0, gv1, gv2, boxMin, boxMax))
-                    {
-                        size_t idx = grid.idx(i, j, k);
-                        // Set the material for the grid cell
-                        if (material_id == 0)
-                        {
-                            // Wall
-                            grid.flags[idx] = 1;
-                            grid.p_absorb[idx] = 0.f;
-                        }
-                        else if (material_id == 1)
-                        {
-                            // Speaker
-                            grid.flags[idx] = 3;
-                        }
-                    }
-                }
-    }
-
-    std::cout << "Material data computed for the grid." << std::endl;
-    std::cout << "Computing absorption material..." << std::endl;
-
-    uint8_t *tmp_flags = new uint8_t[grid.size];
-    std::memcpy(tmp_flags, grid.flags, grid.size * sizeof(uint8_t));
-
-    float *tmp_p_absorb = new float[grid.size];
-    std::memcpy(tmp_p_absorb, grid.p_absorb, grid.size * sizeof(float));
-
-    const int absorptionWidth = 3;
-    const float absorptionEpsilon = 1.f / static_cast<float>(absorptionWidth);
-
-    // Compute absorption material
-    buildSpongeLayer(vector_space.get());
-    std::cout << "Absorption material computed." << std::endl;
-
-    updateGPUFromGrid(vector_space.get()); // Update the GPU grid with the new material data
-
-    // Calculate normals
-    std::cout << "Calculating normals..." << std::endl;
-    for(int k = 1; k < grid.Nz - 1; ++k)
-    {
-        for(int j = 1; j < grid.Ny - 1; ++j)
+        std::cout << "Found " << existing_material_ids.size() << " unique materials." << std::endl;
+        std::cout << "Material ids:";
+        for (const auto &id : existing_material_ids)
         {
-            for(int i = 1; i < grid.Nx - 1; ++i)
-            {
-                size_t idx = grid.idx(i, j, k);
-                if(grid.flags[idx] == 2){
-                    uint8_t current_normal_code = static_cast<uint8_t>(ENormals::kNone);
-
-                    //Check -x neighbor
-                    if(i - 1 >= 0 && grid.flags[grid.idx(i - 1, j, k)] == 1){
-                        current_normal_code |= static_cast<uint8_t>(ENormals::kXPositive);
-                    }
-
-                    //Check +x neighbor
-                    if(i + 1 < grid.Nx && grid.flags[grid.idx(i + 1, j, k)] == 1){
-                        current_normal_code |= static_cast<uint8_t>(ENormals::kXNegative);
-                    }
-
-                    //Check -y neighbor
-                    if(j - 1 >= 0 && grid.flags[grid.idx(i, j - 1, k)] == 1){
-                        current_normal_code |= static_cast<uint8_t>(ENormals::kYPositive);
-                    }
-
-                    //Check +y neighbor
-                    if(j + 1 < grid.Ny && grid.flags[grid.idx(i, j + 1, k)] == 1){
-                        current_normal_code |= static_cast<uint8_t>(ENormals::kYNegative);
-                    }
-
-                    //Check -z neighbor
-                    if(k - 1 >= 0 && grid.flags[grid.idx(i, j, k - 1)] == 1){
-                        current_normal_code |= static_cast<uint8_t>(ENormals::kZPositive);
-                    }
-
-                    //Check +z neighbor
-                    if(k + 1 < grid.Nz && grid.flags[grid.idx(i, j, k + 1)] == 1){
-                        current_normal_code |= static_cast<uint8_t>(ENormals::kZNegative);
-                    }
-
-                    grid.normals[idx] = current_normal_code;
-
-                    // Check for any normal errors
-                    if(grid.normals[idx] == static_cast<uint8_t>(ENormals::kNone))
-                    {
-                        std::cout << "Warning: No normals found for bounddary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
-                    }
-
-                    if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kXPositive)) &&
-                        (grid.normals[idx] & static_cast<uint8_t>(ENormals::kXNegative))) {
-                         std::cout << "Warning: Both X normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
-                    }
-
-                    if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kYPositive)) &&
-                        (grid.normals[idx] & static_cast<uint8_t>(ENormals::kYNegative))) {
-                         std::cout << "Warning: Both Y normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
-                    }
-
-                    if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kZPositive)) &&
-                        (grid.normals[idx] & static_cast<uint8_t>(ENormals::kZNegative))) {
-                         std::cout << "Warning: Both Z normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
-                    }
-                }
-            }
+            std::cout << " " << id;
         }
-    }
-    std::cout << "Normals calculated." << std::endl;
-    uploadNormalsToGPU(vector_space.get()); // Upload normals to GPU
+        std::cout << std::endl;
 
-    // Calculate pZeta
+        // Iterate over every triangle and compute the material for each cell
+        for (size_t s = 0; s < indices.size(); s += 3)
+        {
+            unsigned int idx0 = indices[s];
+            unsigned int idx1 = indices[s + 1];
+            unsigned int idx2 = indices[s + 2];
 
-    float target_Rp_magnitude = 0.9f;
-    float target_zeta = (1.f + target_Rp_magnitude) / (1.f - target_Rp_magnitude);
+            Vec3f v0{vertices[idx0 * 3], vertices[idx0 * 3 + 1], vertices[idx0 * 3 + 2]};
+            Vec3f v1{vertices[idx1 * 3], vertices[idx1 * 3 + 1], vertices[idx1 * 3 + 2]};
+            Vec3f v2{vertices[idx2 * 3], vertices[idx2 * 3 + 1], vertices[idx2 * 3 + 2]};
 
-    std::cout << "Calculating pZeta..." << std::endl;
+            int material_id = materials_ids[s / 3]; // Get the material ID for the triangle
+
+            Vec3f gv0 = toVoxel(v0);
+            Vec3f gv1 = toVoxel(v1);
+            Vec3f gv2 = toVoxel(v2);
+
+            // Compute AABB for the triangle
+            int ixMin = std::clamp(int(std::floor(std::min({gv0.x, gv1.x, gv2.x}))), 0, int(grid.Nx) - 1);
+            int iyMin = std::clamp(int(std::floor(std::min({gv0.y, gv1.y, gv2.y}))), 0, int(grid.Ny) - 1);
+            int izMin = std::clamp(int(std::floor(std::min({gv0.z, gv1.z, gv2.z}))), 0, int(grid.Nz) - 1);
+            int ixMax = std::clamp(int(std::ceil(std::max({gv0.x, gv1.x, gv2.x}))), 0, int(grid.Nx) - 1);
+            int iyMax = std::clamp(int(std::ceil(std::max({gv0.y, gv1.y, gv2.y}))), 0, int(grid.Ny) - 1);
+            int izMax = std::clamp(int(std::ceil(std::max({gv0.z, gv1.z, gv2.z}))), 0, int(grid.Nz) - 1);
+
+            // std::cout << "Triangle AABB: (" << ixMin << ", " << iyMin << ", " << izMin
+            //           << ") to (" << ixMax << ", " << iyMax << ", " << izMax << ")" << std::endl;
+            // std::cout << "Material id: " << material_id << std::endl;
+
+            // Sweep through box
+            for (int k = izMin; k <= izMax; ++k)
+                for (int j = iyMin; j <= iyMax; ++j)
+                    for (int i = ixMin; i <= ixMax; ++i)
+                    {
+
+                        Vec3f boxMin(i, j, k);
+                        Vec3f boxMax(i + 1.f, j + 1.f, k + 1.f);
+
+                        // Check if the triangle intersects the box
+                        if (triangleBoxOverlap3(gv0, gv1, gv2, boxMin, boxMax))
+                        {
+                            size_t idx = grid.idx(i, j, k);
+                            // Set the material for the grid cell
+                            if (material_id == 0)
+                            {
+                                // Wall
+                                grid.flags[idx] = 1;
+                                grid.p_absorb[idx] = 0.f;
+                            }
+                            else if (material_id == 1)
+                            {
+                                // Speaker
+                                grid.flags[idx] = 3;
+                            }
+                        }
+                    }
+        }
+
+        std::cout << "Material data computed for the grid." << std::endl;
+        std::cout << "Computing absorption material..." << std::endl;
+
+        uint8_t *tmp_flags = new uint8_t[grid.size];
+        std::memcpy(tmp_flags, grid.flags, grid.size * sizeof(uint8_t));
+
+        float *tmp_p_absorb = new float[grid.size];
+        std::memcpy(tmp_p_absorb, grid.p_absorb, grid.size * sizeof(float));
+
+        const int absorptionWidth = 3;
+        const float absorptionEpsilon = 1.f / static_cast<float>(absorptionWidth);
+
+        // Compute absorption material
+        buildSpongeLayer(vector_space.get());
+        std::cout << "Absorption material computed." << std::endl;
+
+        updateGPUFromGrid(vector_space.get()); // Update the GPU grid with the new material data
+
+        // Calculate normals
+        std::cout << "Calculating normals..." << std::endl;
         for(int k = 1; k < grid.Nz - 1; ++k)
-    {
-        for(int j = 1; j < grid.Ny - 1; ++j)
         {
-            for(int i = 1; i < grid.Nx - 1; ++i)
+            for(int j = 1; j < grid.Ny - 1; ++j)
             {
-                size_t idx = grid.idx(i, j, k);
-                if(grid.flags[idx] == 2){
-                    grid.pZeta[idx] = target_zeta;
-                }else{
-                    grid.pZeta[idx] = 0.f; // No pZeta for non-boundary cells
+                for(int i = 1; i < grid.Nx - 1; ++i)
+                {
+                    size_t idx = grid.idx(i, j, k);
+                    if(grid.flags[idx] == 2){
+                        uint8_t current_normal_code = static_cast<uint8_t>(ENormals::kNone);
+
+                        //Check -x neighbor
+                        if(i - 1 >= 0 && grid.flags[grid.idx(i - 1, j, k)] == 1){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kXPositive);
+                        }
+
+                        //Check +x neighbor
+                        if(i + 1 < grid.Nx && grid.flags[grid.idx(i + 1, j, k)] == 1){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kXNegative);
+                        }
+
+                        //Check -y neighbor
+                        if(j - 1 >= 0 && grid.flags[grid.idx(i, j - 1, k)] == 1){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kYPositive);
+                        }
+
+                        //Check +y neighbor
+                        if(j + 1 < grid.Ny && grid.flags[grid.idx(i, j + 1, k)] == 1){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kYNegative);
+                        }
+
+                        //Check -z neighbor
+                        if(k - 1 >= 0 && grid.flags[grid.idx(i, j, k - 1)] == 1){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kZPositive);
+                        }
+
+                        //Check +z neighbor
+                        if(k + 1 < grid.Nz && grid.flags[grid.idx(i, j, k + 1)] == 1){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kZNegative);
+                        }
+
+                        grid.normals[idx] = current_normal_code;
+
+                        // Check for any normal errors
+                        if(grid.normals[idx] == static_cast<uint8_t>(ENormals::kNone))
+                        {
+                            std::cout << "Warning: No normals found for bounddary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                        }
+
+                        if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kXPositive)) &&
+                            (grid.normals[idx] & static_cast<uint8_t>(ENormals::kXNegative))) {
+                            std::cout << "Warning: Both X normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                        }
+
+                        if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kYPositive)) &&
+                            (grid.normals[idx] & static_cast<uint8_t>(ENormals::kYNegative))) {
+                            std::cout << "Warning: Both Y normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                        }
+
+                        if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kZPositive)) &&
+                            (grid.normals[idx] & static_cast<uint8_t>(ENormals::kZNegative))) {
+                            std::cout << "Warning: Both Z normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                        }
+                    }
                 }
             }
         }
-    }
+        std::cout << "Normals calculated." << std::endl;
+        uploadNormalsToGPU(vector_space.get()); // Upload normals to GPU
 
-    std::cout << "pZeta calculated." << std::endl;
-    uploadPZetaToGPU(vector_space.get());
+        // Calculate pZeta
+
+        float target_Rp_magnitude = 0.9f;
+        float target_zeta = (1.f + target_Rp_magnitude) / (1.f - target_Rp_magnitude);
+
+        std::cout << "Calculating pZeta..." << std::endl;
+            for(int k = 1; k < grid.Nz - 1; ++k)
+        {
+            for(int j = 1; j < grid.Ny - 1; ++j)
+            {
+                for(int i = 1; i < grid.Nx - 1; ++i)
+                {
+                    size_t idx = grid.idx(i, j, k);
+                    if(grid.flags[idx] == 2){
+                        grid.pZeta[idx] = target_zeta;
+                    }else{
+                        grid.pZeta[idx] = 0.f; // No pZeta for non-boundary cells
+                    }
+                }
+            }
+        }
+
+        std::cout << "pZeta calculated." << std::endl;
+        uploadPZetaToGPU(vector_space.get());
+    }
 
     const size_t numVerts = vertices.size() / 3;
     const size_t numTriangles = indices.size() / 3;
@@ -602,6 +610,7 @@ void Simulator::renderImageToFile(Vec3f cameraPos, const std::string &output_pat
 {
     render(cameraPos, useGrid);
     // Save the image to a file
+    std::cout << "Saving image to: " << output_path << std::endl;
     save_png(output_path.c_str(), framebuffer, width, height, false);
 }
 
@@ -705,9 +714,9 @@ void Simulator::render(Vec3f cameraPos, bool useGrid)
                         rayPos.x -= n.x * epsilon;
                         rayPos.y -= n.y * epsilon;
                         rayPos.z -= n.z * epsilon;
-                        size_t idx = getGridIdxFromVecPos(rayPos);
+                        size_t idx;
                         Vec3f pressureColor = {0.0f, 0.0f, 0.0f};
-                        if (useGrid && idx < vector_space->getGrid().size)
+                        if (useGrid && (idx = getGridIdxFromVecPos(rayPos)) < vector_space->getGrid().size)
                         {
                             float pressure = (vector_space->getGrid().p_curr[idx]);
                             if (pressure > 0.0f)
@@ -798,7 +807,9 @@ Simulator::~Simulator()
         rtcReleaseScene(scene);
         scene = nullptr;
     }
-    fdtd_cleanup(vector_space.get());
+    if(vector_space){
+        fdtd_cleanup(vector_space.get());
+    }
 }
 
 std::string Simulator::toString()
