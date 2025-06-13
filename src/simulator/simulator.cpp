@@ -321,6 +321,8 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
 
     if(forSimulation){
         vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, audio_file, vector_box_size);
+        vector_space->getGrid().num_biquad_filters = 3;
+        vector_space->getGrid().allocated_filter_memory = false;
         fdtd_setup(vector_space.get());
     }
 
@@ -446,6 +448,7 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
         // Compute absorption material
         buildSpongeLayer(vector_space.get());
         std::cout << "Absorption material computed." << std::endl;
+        grid.boundary_indices_size = 0;
 
         updateGPUFromGrid(vector_space.get()); // Update the GPU grid with the new material data
 
@@ -460,6 +463,7 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
                     size_t idx = grid.idx(i, j, k);
                     if(grid.flags[idx] == 2){
                         uint8_t current_normal_code = static_cast<uint8_t>(ENormals::kNone);
+                        grid.boundary_indices_size++;
 
                         //Check -x neighbor
                         if(i - 1 >= 0 && grid.flags[grid.idx(i - 1, j, k)] == 1){
@@ -520,10 +524,14 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
         std::cout << "Normals calculated." << std::endl;
         uploadNormalsToGPU(vector_space.get()); // Upload normals to GPU
 
-        // Calculate pZeta
+        // Calculate pZeta and set boundary indices
+        grid.boundary_indices = new uint32_t[grid.boundary_indices_size];
+        size_t boundary_index = 0;
 
-        float target_Rp_magnitude = 0.9f;
+        float target_Rp_magnitude = 0.3f;
         float target_zeta = (1.f + target_Rp_magnitude) / (1.f - target_Rp_magnitude);
+
+        allocFilters(vector_space.get());
 
         std::cout << "Calculating pZeta..." << std::endl;
             for(int k = 1; k < grid.Nz - 1; ++k)
@@ -535,6 +543,8 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
                     size_t idx = grid.idx(i, j, k);
                     if(grid.flags[idx] == 2){
                         grid.pZeta[idx] = target_zeta;
+                        grid.boundary_indices[boundary_index++] = idx;
+
                     }else{
                         grid.pZeta[idx] = 0.f; // No pZeta for non-boundary cells
                     }
@@ -544,6 +554,7 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
 
         std::cout << "pZeta calculated." << std::endl;
         uploadPZetaToGPU(vector_space.get());
+        uploadBoundaryIndicesToGPU(vector_space.get());
     }
 
     const size_t numVerts = vertices.size() / 3;
@@ -695,14 +706,16 @@ void Simulator::render(Vec3f cameraPos, bool useGrid)
                 else
                 {
                     float cameraNormalDot = rayDir.x * rayHit.hit.Ng_x + rayDir.y * rayHit.hit.Ng_y + rayDir.z * rayHit.hit.Ng_z;
-                    if (cameraNormalDot > 0)
+                    if (cameraNormalDot > 0 || numBounces > 1)
                     {
                         Vec3f n;
                         n.x = rayHit.hit.Ng_x;
                         n.y = rayHit.hit.Ng_y;
                         n.z = rayHit.hit.Ng_z;
                         n = normalize(n);
-                        float shade = abs(dot(rayDir * -1.f, n));
+                        Vec3f lightDir = rayDir;
+                        float shade = 0.7 * std::max(dot(n, lightDir), 0.f) + 0.3f;
+                        //float shade = abs(dot(rayDir * -1.f, n));
                         Vec3f shadeColor = {shade, shade, shade};
 
                         Vec3f rayPos = {rayHit.ray.org_x + rayDir.x * rayHit.ray.tfar,
@@ -820,12 +833,13 @@ std::string Simulator::toString()
     return result;
 }
 
-void Simulator::doSimulationStep()
+bool Simulator::doSimulationStep()
 {
     std::cout << "\rPerforming simulation step " << simulation_step << "... Last step took: " << vector_space->stopwatch() << std::flush;
     // vector_space->computePressureStage();
-    fdtd_step(vector_space.get(), simulation_step);
+    bool shouldContinue = fdtd_step(vector_space.get(), simulation_step);
     simulation_step++;
+    return shouldContinue;
 }
 
 void Simulator::simulate()
@@ -856,7 +870,7 @@ void Simulator::simulate()
     for (size_t i = 0; i < num_simulation_steps; ++i)
     {
 
-        doSimulationStep();
+        bool shouldContinue = doSimulationStep();
         if (should_save_layer_images)
         {
             std::string file_out = output_images_dir + "/output_step_";
@@ -891,6 +905,10 @@ void Simulator::simulate()
                 updateCurrentGridFromGPU(vector_space.get());
                 vector_space->layerToImage(file_out, output_layer);
             }
+        }
+        if(!shouldContinue){
+            std::cout << "RMS threshold reached, stopping simulation." << std::endl;
+            break;
         }
     }
     // initPressureSphere(vector_space.get(), centerx, centery, centerz, 100, 1.f, true);

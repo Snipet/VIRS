@@ -3,7 +3,7 @@
 
 void fdtd_gpu_setup(VectorSpace* space);
 extern "C"{
-    void fdtd_gpu_step(VectorSpace* space, float h, unsigned int step);
+    bool fdtd_gpu_step(VectorSpace* space, float h, unsigned int step);
     void initPressureSphereGPU(VectorSpace* space, size_t xpos, size_t ypos, size_t zpos, size_t radius, float pressure, bool init);
     void buildSpongeLayerGPU(VectorSpace* space);
 }

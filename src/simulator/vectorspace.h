@@ -70,6 +70,60 @@ struct Grid
 	float *pZeta;
 	float *d_pZeta;
 
+	size_t num_materials;
+	float *biquad_a1, *biquad_a2, *biquad_b0, *biquad_b1, *biquad_b2;
+	float *d_biquad_a1, *d_biquad_a2, *d_biquad_b0, *d_biquad_b1, *d_biquad_b2;
+	float *d_biquad_coeffs_ptr[6];
+
+	size_t num_biquad_filters;
+
+	// x positive
+	float *biquad_xp_x1, *biquad_xp_x2, *biquad_xp_y1, *biquad_xp_y2;
+	float *d_biquad_xp_x1, *d_biquad_xp_x2, *d_biquad_xp_y1, *d_biquad_xp_y2;
+
+	// x negative
+	float *biquad_xn_x1, *biquad_xn_x2, *biquad_xn_y1, *biquad_xn_y2;
+	float *d_biquad_xn_x1, *d_biquad_xn_x2, *d_biquad_xn_y1, *d_biquad_xn_y2;
+
+	// y positive
+	float *biquad_yp_x1, *biquad_yp_x2, *biquad_yp_y1, *biquad_yp_y2;
+	float *d_biquad_yp_x1, *d_biquad_yp_x2, *d_biquad_yp_y1, *d_biquad_yp_y2;
+
+	// y negative
+	float *biquad_yn_x1, *biquad_yn_x2, *biquad_yn_y1, *biquad_yn_y2;
+	float *d_biquad_yn_x1, *d_biquad_yn_x2, *d_biquad_yn_y1, *d_biquad_yn_y2;
+
+	// z positive
+	float *biquad_zp_x1, *biquad_zp_x2, *biquad_zp_y1, *biquad_zp_y2;
+	float *d_biquad_zp_x1, *d_biquad_zp_x2, *d_biquad_zp_y1, *d_biquad_zp_y2;
+
+	// z negative
+	float *biquad_zn_x1, *biquad_zn_x2, *biquad_zn_y1, *biquad_zn_y2;
+	float *d_biquad_zn_x1, *d_biquad_zn_x2, *d_biquad_zn_y1, *d_biquad_zn_y2;
+	
+
+	//Filter state pointers
+	float* d_biquad_xp_ptr[4];
+	float* d_biquad_xn_ptr[4];
+	float* d_biquad_yp_ptr[4];
+	float* d_biquad_yn_ptr[4];
+	float* d_biquad_zp_ptr[4];
+	float* d_biquad_zn_ptr[4];
+
+
+	bool allocated_filter_memory;
+
+	/*
+	* This is a pointer to an array of pointers to filter states.
+	* Each of the 6 elements/pointers corresponds to a different face of the voxel.
+	* Each face stores 4 filter states (x1, x2, y1, y2).
+	*/
+	float* (*d_biquad_states[6])[4];
+
+	uint32_t *boundary_indices;
+	uint32_t *d_boundary_indices;
+	size_t boundary_indices_size;
+
 
 	std::size_t Nx;
 	std::size_t Ny;

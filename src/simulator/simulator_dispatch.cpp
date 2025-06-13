@@ -18,12 +18,13 @@ void fdtd_setup(VectorSpace* space) {
     #endif
 }
 
-void fdtd_step(VectorSpace* space, unsigned int step) {
+bool fdtd_step(VectorSpace* space, unsigned int step) {
     #ifdef VIRS_WITH_CUDA
     //std::cout << "Performing FDTD step on GPU." << std::endl;
-    fdtd_gpu_step(space, space->h, step);
+    return fdtd_gpu_step(space, space->h, step);
     #else
     fdtd_cpu_step(space, space->h);
+    return false;
     #endif
 }
 
@@ -114,4 +115,220 @@ void uploadPZetaToGPU(VectorSpace* space) {
     #else
     std::cout << "No GPU support, skipping pZeta upload." << std::endl;
     #endif
+}
+
+void uploadBoundaryIndicesToGPU(VectorSpace* space) {
+    #ifdef VIRS_WITH_CUDA
+    std::cout << "Uploading boundary indices to GPU." << std::endl;
+    Grid &grid = space->getGrid();
+    cudaMalloc((void**)&grid.d_boundary_indices, sizeof(uint32_t) * grid.boundary_indices_size);
+    cudaMemcpy(grid.d_boundary_indices, grid.boundary_indices, sizeof(uint32_t) * grid.boundary_indices_size, cudaMemcpyHostToDevice);
+    #else
+    std::cout << "No GPU support, skipping boundary indices upload." << std::endl;
+    #endif
+}
+
+void allocFilterStates(VectorSpace* space){
+    #ifdef VIRS_WITH_CUDA
+    std::cout << "Allocating filter states on GPU." << std::endl;
+   
+    Grid& grid = space->getGrid();
+    size_t num_biquad_sections = grid.num_biquad_filters;
+    size_t num_boundary_voxels = grid.boundary_indices_size;
+    size_t N = num_biquad_sections * num_boundary_voxels;
+
+    // Allocate memory for filter states on CPU
+    grid.biquad_xp_x1 = new float[N];
+    grid.biquad_xp_x2 = new float[N];
+    grid.biquad_xp_y1 = new float[N];
+    grid.biquad_xp_y2 = new float[N];
+    
+    grid.biquad_xn_x1 = new float[N];
+    grid.biquad_xn_x2 = new float[N];
+    grid.biquad_xn_y1 = new float[N];
+    grid.biquad_xn_y2 = new float[N];
+
+    grid.biquad_yp_x1 = new float[N];
+    grid.biquad_yp_x2 = new float[N];
+    grid.biquad_yp_y1 = new float[N];
+    grid.biquad_yp_y2 = new float[N];
+
+    grid.biquad_yn_x1 = new float[N];
+    grid.biquad_yn_x2 = new float[N];
+    grid.biquad_yn_y1 = new float[N];
+    grid.biquad_yn_y2 = new float[N];
+
+    grid.biquad_zp_x1 = new float[N];
+    grid.biquad_zp_x2 = new float[N];
+    grid.biquad_zp_y1 = new float[N];
+    grid.biquad_zp_y2 = new float[N];
+
+    grid.biquad_zn_x1 = new float[N];
+    grid.biquad_zn_x2 = new float[N];
+    grid.biquad_zn_y1 = new float[N];
+    grid.biquad_zn_y2 = new float[N];
+
+
+    // Zero out the filter states
+    std::memset(grid.biquad_xp_x1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_xp_x2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_xp_y1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_xp_y2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_xn_x1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_xn_x2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_xn_y1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_xn_y2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_yp_x1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_yp_x2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_yp_y1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_yp_y2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_yn_x1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_yn_x2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_yn_y1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_yn_y2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_zp_x1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_zp_x2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_zp_y1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_zp_y2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_zn_x1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_zn_x2, 0, sizeof(float) * N);
+    std::memset(grid.biquad_zn_y1, 0, sizeof(float) * N);
+    std::memset(grid.biquad_zn_y2, 0, sizeof(float) * N);
+
+    // Allocate memory for filter states on GPU
+    cudaMalloc((void**)&grid.d_biquad_xp_x1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_xp_x2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_xp_y1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_xp_y2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_xn_x1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_xn_x2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_xn_y1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_xn_y2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_yp_x1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_yp_x2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_yp_y1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_yp_y2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_yn_x1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_yn_x2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_yn_y1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_yn_y2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_zp_x1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_zp_x2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_zp_y1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_zp_y2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_zn_x1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_zn_x2, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_zn_y1, sizeof(float) * N);
+    cudaMalloc((void**)&grid.d_biquad_zn_y2, sizeof(float) * N);
+
+    // Copy filter states from CPU to GPU
+    cudaMemcpy(grid.d_biquad_xp_x1, grid.biquad_xp_x1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_xp_x2, grid.biquad_xp_x2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_xp_y1, grid.biquad_xp_y1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_xp_y2, grid.biquad_xp_y2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_xn_x1, grid.biquad_xn_x1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_xn_x2, grid.biquad_xn_x2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_xn_y1, grid.biquad_xn_y1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_xn_y2, grid.biquad_xn_y2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_yp_x1, grid.biquad_yp_x1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_yp_x2, grid.biquad_yp_x2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_yp_y1, grid.biquad_yp_y1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_yp_y2, grid.biquad_yp_y2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_yn_x1, grid.biquad_yn_x1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_yn_x2, grid.biquad_yn_x2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_yn_y1, grid.biquad_yn_y1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_yn_y2, grid.biquad_yn_y2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_zp_x1, grid.biquad_zp_x1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_zp_x2, grid.biquad_zp_x2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_zp_y1, grid.biquad_zp_y1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_zp_y2, grid.biquad_zp_y2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_zn_x1, grid.biquad_zn_x1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_zn_x2, grid.biquad_zn_x2, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_zn_y1, grid.biquad_zn_y1, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_zn_y2, grid.biquad_zn_y2, sizeof(float) * N, cudaMemcpyHostToDevice);
+
+    // Set up filter pointers
+    grid.d_biquad_xp_ptr[0] = grid.d_biquad_xp_x1;
+    grid.d_biquad_xp_ptr[1] = grid.d_biquad_xp_x2;
+    grid.d_biquad_xp_ptr[2] = grid.d_biquad_xp_y1;
+    grid.d_biquad_xp_ptr[3] = grid.d_biquad_xp_y2;
+    grid.d_biquad_xn_ptr[0] = grid.d_biquad_xn_x1;
+    grid.d_biquad_xn_ptr[1] = grid.d_biquad_xn_x2;
+    grid.d_biquad_xn_ptr[2] = grid.d_biquad_xn_y1;
+    grid.d_biquad_xn_ptr[3] = grid.d_biquad_xn_y2;
+    grid.d_biquad_yp_ptr[0] = grid.d_biquad_yp_x1;
+    grid.d_biquad_yp_ptr[1] = grid.d_biquad_yp_x2;
+    grid.d_biquad_yp_ptr[2] = grid.d_biquad_yp_y1;
+    grid.d_biquad_yp_ptr[3] = grid.d_biquad_yp_y2;
+    grid.d_biquad_yn_ptr[0] = grid.d_biquad_yn_x1;
+    grid.d_biquad_yn_ptr[1] = grid.d_biquad_yn_x2;
+    grid.d_biquad_yn_ptr[2] = grid.d_biquad_yn_y1;
+    grid.d_biquad_yn_ptr[3] = grid.d_biquad_yn_y2;
+    grid.d_biquad_zp_ptr[0] = grid.d_biquad_zp_x1;
+    grid.d_biquad_zp_ptr[1] = grid.d_biquad_zp_x2;
+    grid.d_biquad_zp_ptr[2] = grid.d_biquad_zp_y1;
+    grid.d_biquad_zp_ptr[3] = grid.d_biquad_zp_y2;
+    grid.d_biquad_zn_ptr[0] = grid.d_biquad_zn_x1;
+    grid.d_biquad_zn_ptr[1] = grid.d_biquad_zn_x2;
+    grid.d_biquad_zn_ptr[2] = grid.d_biquad_zn_y1;
+    grid.d_biquad_zn_ptr[3] = grid.d_biquad_zn_y2;
+
+    grid.d_biquad_states[0] = &grid.d_biquad_xp_ptr;
+    grid.d_biquad_states[1] = &grid.d_biquad_xn_ptr;
+    grid.d_biquad_states[2] = &grid.d_biquad_yp_ptr;
+    grid.d_biquad_states[3] = &grid.d_biquad_yn_ptr;
+    grid.d_biquad_states[4] = &grid.d_biquad_zp_ptr;
+    grid.d_biquad_states[5] = &grid.d_biquad_zn_ptr;
+    grid.allocated_filter_memory = true;
+
+    #else
+    std::cout << "No GPU support, skipping filter setup." << std::endl;
+    #endif
+}
+
+void allocFilterCoeffs(VectorSpace* space, const size_t num_materials){
+#ifdef VIRS_WITH_CUDA
+    std::cout << "Allocating filter coefficients on GPU." << std::endl;
+
+    Grid& grid = space->getGrid();
+    grid.num_materials = num_materials;
+
+    // Allocate memory for filter coefficients on CPU
+    grid.biquad_a1 = new float[num_materials];
+    grid.biquad_a2 = new float[num_materials];
+    grid.biquad_b0 = new float[num_materials];
+    grid.biquad_b1 = new float[num_materials];
+    grid.biquad_b2 = new float[num_materials];
+
+    // Zero out the filter coefficients
+    std::memset(grid.biquad_a1, 0, sizeof(float) * num_materials);
+    std::memset(grid.biquad_a2, 0, sizeof(float) * num_materials);
+    std::memset(grid.biquad_b0, 0, sizeof(float) * num_materials);
+    std::memset(grid.biquad_b1, 0, sizeof(float) * num_materials);
+    std::memset(grid.biquad_b2, 0, sizeof(float) * num_materials);
+
+    // Allocate memory for filter coefficients on GPU
+    cudaMalloc((void**)&grid.d_biquad_a1, sizeof(float) * num_materials);
+    cudaMalloc((void**)&grid.d_biquad_a2, sizeof(float) * num_materials);
+    cudaMalloc((void**)&grid.d_biquad_b0, sizeof(float) * num_materials);
+    cudaMalloc((void**)&grid.d_biquad_b1, sizeof(float) * num_materials);
+    cudaMalloc((void**)&grid.d_biquad_b2, sizeof(float) * num_materials);
+
+    // Copy filter coefficients from CPU to GPU
+    cudaMemcpy(grid.d_biquad_a1, grid.biquad_a1, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_a2, grid.biquad_a2, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_b0, grid.biquad_b0, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_b1, grid.biquad_b1, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_b2, grid.biquad_b2, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+
+    // Set up filter coefficient pointers
+    grid.d_biquad_coeffs_ptr[0] = grid.d_biquad_b0;
+    grid.d_biquad_coeffs_ptr[1] = grid.d_biquad_b1;
+    grid.d_biquad_coeffs_ptr[2] = grid.d_biquad_b2;
+    grid.d_biquad_coeffs_ptr[3] = grid.d_biquad_a1;
+    grid.d_biquad_coeffs_ptr[4] = grid.d_biquad_a2;
+
+#else
+    std::cout << "No GPU support, skipping filter coefficients allocation." << std::endl;
+#endif // VIRS_WITH_CUDA
 }

@@ -2,7 +2,7 @@
 #include "vectorspace.h"
 
 void fdtd_setup(VectorSpace* space);
-void fdtd_step(VectorSpace* space, unsigned int step);
+bool fdtd_step(VectorSpace* space, unsigned int step);
 void fdtd_cleanup(VectorSpace* space);
 void fdtd_start_simulation(VectorSpace* space, size_t steps);
 void initPressureSphere(VectorSpace* space, size_t xpos, size_t ypos, size_t zpos, size_t radius, float pressure, bool init);
@@ -19,4 +19,7 @@ void updateGPUFromGrid(VectorSpace* space);
 
 void uploadNormalsToGPU(VectorSpace* space);
 void uploadPZetaToGPU(VectorSpace* space);
+void uploadBoundaryIndicesToGPU(VectorSpace* space);
+void allocFilterStates(VectorSpace* space);
+void allocFilterCoeffs(VectorSpace* space, const size_t num_materials);
 
