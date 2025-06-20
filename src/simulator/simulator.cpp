@@ -6,6 +6,8 @@
 #include "tbb/parallel_for.h"
 #include "simulator_dispatch.h"
 #include "normals.h"
+#include "../util/logger.h"
+#include "biquad.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -261,14 +263,15 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
     object_path = path;
 
     // Load the object file using TinyOBJLoader
-    std::cout << "Loading object file: " << object_path << std::endl;
+    Logger::getInstance().log("Loading object file: " + object_path, LOGGER_CRITICAL_INFO);
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
 
     std::string material_dir = object_path.substr(0, object_path.find_last_of('/'));
-    std::cout << "Material directory: " << material_dir << std::endl;
+
+    Logger::getInstance().log("Material directory: " + material_dir, LOGGER_CRITICAL_INFO);
 
     if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, object_path.c_str(), material_dir.c_str()))
     {
@@ -303,8 +306,14 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
     bounding_box.max.y += nudge;
     bounding_box.max.z += nudge;
 
-    std::cout << "Bounding box: min(" << bounding_box.min.x << ", " << bounding_box.min.y << ", " << bounding_box.min.z
-              << "), max(" << bounding_box.max.x << ", " << bounding_box.max.y << ", " << bounding_box.max.z << ")" << std::endl;
+    // std::cout << "Bounding box: min(" << bounding_box.min.x << ", " << bounding_box.min.y << ", " << bounding_box.min.z
+    //           << "), max(" << bounding_box.max.x << ", " << bounding_box.max.y << ", " << bounding_box.max.z << ")" << std::endl;
+
+    Logger::getInstance().log("Bounding box: min(" + std::to_string(bounding_box.min.x) + ", " +
+                               std::to_string(bounding_box.min.y) + ", " + std::to_string(bounding_box.min.z) +
+                               "), max(" + std::to_string(bounding_box.max.x) + ", " +
+                               std::to_string(bounding_box.max.y) + ", " + std::to_string(bounding_box.max.z) + ")",
+                               LOGGER_NONCRITIAL_INFO);
 
     vector_box_size = 343.f / (MAX_AUDIO_FREQ * 2.f * (float)SIMULATION_OVERSAMPLING);
     float spanx = bounding_box.max.x - bounding_box.min.x;
@@ -316,12 +325,15 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
     size_t sizey = spany * num_vectors_meter;
     size_t sizez = spanz * num_vectors_meter;
     std::vector<int> existing_material_ids;
-    std::cout << "Vector box size: " << vector_box_size << "m, size in vectors: (" << sizex << ", " << sizey << ", " << sizez << ")" << std::endl;
+    //std::cout << "Vector box size: " << vector_box_size << "m, size in vectors: (" << sizex << ", " << sizey << ", " << sizez << ")" << std::endl;
+    Logger::getInstance().log("Vector box size: " + std::to_string(vector_box_size) + "m, size in vectors: (" +
+                               std::to_string(sizex) + ", " + std::to_string(sizey) + ", " + std::to_string(sizez) + ")",
+                               LOGGER_NONCRITIAL_INFO);
     size_t memory_usage_bytes = sizex * sizey * sizez * sizeof(float) * 3; // 3 floats per vector
 
     if(forSimulation){
         vector_space = std::make_unique<VectorSpace>(sizex, sizey, sizez, audio_file, vector_box_size);
-        vector_space->getGrid().num_biquad_filters = 3;
+        vector_space->getGrid().num_filter_sections = 3;
         vector_space->getGrid().allocated_filter_memory = false;
         fdtd_setup(vector_space.get());
     }
@@ -367,13 +379,16 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
         // Compute cell materials based on the imported mesh
         Grid &grid = vector_space->getGrid();
 
-        std::cout << "Found " << existing_material_ids.size() << " unique materials." << std::endl;
-        std::cout << "Material ids:";
+        //std::cout << "Found " << existing_material_ids.size() << " unique materials." << std::endl;
+        Logger::getInstance().log("Found " + std::to_string(existing_material_ids.size()) + " unique materials.", LOGGER_NONCRITIAL_INFO);
+
+        //std::cout << "Material ids:";
+        Logger::getInstance().log("Material ids:", LOGGER_NONCRITIAL_INFO);
         for (const auto &id : existing_material_ids)
         {
-            std::cout << " " << id;
+            //std::cout << " " << id;
+            Logger::getInstance().log("  -" + std::to_string(id), LOGGER_NONCRITIAL_INFO);
         }
-        std::cout << std::endl;
 
         // Iterate over every triangle and compute the material for each cell
         for (size_t s = 0; s < indices.size(); s += 3)
@@ -433,8 +448,10 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
                     }
         }
 
-        std::cout << "Material data computed for the grid." << std::endl;
-        std::cout << "Computing absorption material..." << std::endl;
+        //std::cout << "Material data computed for the grid." << std::endl;
+        Logger::getInstance().log("Material data computed for the grid.", LOGGER_NONCRITIAL_INFO);
+        //std::cout << "Computing absorption material..." << std::endl;
+        Logger::getInstance().log("Computing absorption material...", LOGGER_NONCRITIAL_INFO);
 
         uint8_t *tmp_flags = new uint8_t[grid.size];
         std::memcpy(tmp_flags, grid.flags, grid.size * sizeof(uint8_t));
@@ -447,13 +464,15 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
 
         // Compute absorption material
         buildSpongeLayer(vector_space.get());
-        std::cout << "Absorption material computed." << std::endl;
+        //std::cout << "Absorption material computed." << std::endl;
+        Logger::getInstance().log("Absorption material computed.", LOGGER_NONCRITIAL_INFO);
         grid.boundary_indices_size = 0;
 
         updateGPUFromGrid(vector_space.get()); // Update the GPU grid with the new material data
 
         // Calculate normals
-        std::cout << "Calculating normals..." << std::endl;
+        //std::cout << "Calculating normals..." << std::endl;
+        Logger::getInstance().log("Calculating normals...", LOGGER_NONCRITIAL_INFO);
         for(int k = 1; k < grid.Nz - 1; ++k)
         {
             for(int j = 1; j < grid.Ny - 1; ++j)
@@ -500,40 +519,50 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
                         // Check for any normal errors
                         if(grid.normals[idx] == static_cast<uint8_t>(ENormals::kNone))
                         {
-                            std::cout << "Warning: No normals found for bounddary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                            //std::cout << "Warning: No normals found for bounddary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                            Logger::getInstance().log("Warning: No normals found for boundary cell at (" + std::to_string(i) + ", " +
+                                                       std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
                         }
 
                         if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kXPositive)) &&
                             (grid.normals[idx] & static_cast<uint8_t>(ENormals::kXNegative))) {
-                            std::cout << "Warning: Both X normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                            //std::cout << "Warning: Both X normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                            Logger::getInstance().log("Warning: Both X normals found for boundary cell at (" + std::to_string(i) + ", " +
+                                                       std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
                         }
 
                         if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kYPositive)) &&
                             (grid.normals[idx] & static_cast<uint8_t>(ENormals::kYNegative))) {
-                            std::cout << "Warning: Both Y normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                            //std::cout << "Warning: Both Y normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                            Logger::getInstance().log("Warning: Both Y normals found for boundary cell at (" + std::to_string(i) + ", " +
+                                                       std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
                         }
 
                         if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kZPositive)) &&
                             (grid.normals[idx] & static_cast<uint8_t>(ENormals::kZNegative))) {
-                            std::cout << "Warning: Both Z normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                            //std::cout << "Warning: Both Z normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                            Logger::getInstance().log("Warning: Both Z normals found for boundary cell at (" + std::to_string(i) + ", " +
+                                                       std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
                         }
                     }
                 }
             }
         }
-        std::cout << "Normals calculated." << std::endl;
+        //std::cout << "Normals calculated." << std::endl;
+        Logger::getInstance().log("Normals calculated.", LOGGER_NONCRITIAL_INFO);
         uploadNormalsToGPU(vector_space.get()); // Upload normals to GPU
 
         // Calculate pZeta and set boundary indices
         grid.boundary_indices = new uint32_t[grid.boundary_indices_size];
         size_t boundary_index = 0;
 
-        float target_Rp_magnitude = 0.3f;
+        float target_Rp_magnitude = 0.93f;
         float target_zeta = (1.f + target_Rp_magnitude) / (1.f - target_Rp_magnitude);
 
-        allocFilters(vector_space.get());
+        allocFilterStates(vector_space.get());
 
-        std::cout << "Calculating pZeta..." << std::endl;
+        //std::cout << "Calculating pZeta..." << std::endl;
+        Logger::getInstance().log("Calculating pZeta...", LOGGER_NONCRITIAL_INFO);
             for(int k = 1; k < grid.Nz - 1; ++k)
         {
             for(int j = 1; j < grid.Ny - 1; ++j)
@@ -552,14 +581,16 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
             }
         }
 
-        std::cout << "pZeta calculated." << std::endl;
+        //std::cout << "pZeta calculated." << std::endl;
+        Logger::getInstance().log("pZeta calculated.", LOGGER_NONCRITIAL_INFO);
         uploadPZetaToGPU(vector_space.get());
         uploadBoundaryIndicesToGPU(vector_space.get());
     }
 
     const size_t numVerts = vertices.size() / 3;
     const size_t numTriangles = indices.size() / 3;
-    std::cout << "Loaded " << numVerts << " vertices and " << numTriangles << " triangles." << std::endl;
+    //std::cout << "Loaded " << numVerts << " vertices and " << numTriangles << " triangles." << std::endl;
+    Logger::getInstance().log("Loaded " + std::to_string(numVerts) + " vertices and " + std::to_string(numTriangles) + " triangles.", LOGGER_CRITICAL_INFO);
     RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
 
     float *vb = static_cast<float *>(rtcSetNewGeometryBuffer(
@@ -570,28 +601,32 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
         geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(unsigned int) * 3, numTriangles));
     std::memcpy(ib, indices.data(), indices.size() * sizeof(unsigned int));
 
-    std::cout << "Geometry created." << std::endl;
+    //std::cout << "Geometry created." << std::endl;
+    Logger::getInstance().log("Geometry created.", LOGGER_NONCRITIAL_INFO);
     rtcCommitGeometry(geom);
     rtcAttachGeometry(scene, geom);
-    // rtcReleaseGeometry(geom);
     rtcCommitScene(scene);
 
-    std::cout << "Scene committed." << std::endl;
+    //std::cout << "Scene committed." << std::endl;
+    Logger::getInstance().log("Scene committed.", LOGGER_NONCRITIAL_INFO);
 }
 
 void Simulator::renderAnimation(std::string outPath, int frames, float radius)
 {
     if (!device || !scene)
     {
-        std::cerr << "Device or scene not initialized." << std::endl;
+        //std::cerr << "Device or scene not initialized." << std::endl;
+        Logger::getInstance().log("Device or scene not initialized.", LOGGER_ERROR);
         return;
     }
     if (!framebuffer)
     {
-        std::cerr << "framebuffer not initialized." << std::endl;
+        //std::cerr << "framebuffer not initialized." << std::endl;
+        Logger::getInstance().log("Framebuffer not initialized.", LOGGER_ERROR);
         return;
     }
-    std::cout << "Rendering the scene..." << std::endl;
+    //std::cout << "Rendering the scene..." << std::endl;
+    Logger::getInstance().log("Rendering the scene...", LOGGER_CRITICAL_INFO);
 
     std::string filename = "output";
     for (int i = 0; i < frames; i++)
@@ -613,7 +648,8 @@ void Simulator::renderAnimation(std::string outPath, int frames, float radius)
         float z = std::cos(phase) * radius;
         float y = 6.0f;
         renderImageToFile({x, y, z}, full_path);
-        std::cout << "Rendering to: " << full_path << std::endl;
+        //std::cout << "Rendering to: " << full_path << std::endl;
+        Logger::getInstance().log("Rendering to: " + full_path, LOGGER_CRITICAL_INFO);
     }
 }
 
@@ -621,7 +657,8 @@ void Simulator::renderImageToFile(Vec3f cameraPos, const std::string &output_pat
 {
     render(cameraPos, useGrid);
     // Save the image to a file
-    std::cout << "Saving image to: " << output_path << std::endl;
+    //std::cout << "Saving image to: " << output_path << std::endl;
+    Logger::getInstance().log("Saving image to: " + output_path, LOGGER_SUCCESS);
     save_png(output_path.c_str(), framebuffer, width, height, false);
 }
 
@@ -790,10 +827,10 @@ void Simulator::render(Vec3f cameraPos, bool useGrid)
                     }
                 }
                 numBounces++;
-                if (numBounces > 10)
-                {
-                    cont = false;
-                }
+                // if (numBounces > 10)
+                // {
+                //     cont = false;
+                // }
             }
         }
     }
@@ -855,10 +892,31 @@ void Simulator::simulate()
     float c2_dt2 = c * c * dt * dt;
     float gdt = 5.f * dt;
     float inv_h2 = 1.f / (h * h);
-    std::cout << "Simulation parameters: c = " << c << " m/s, h = " << h << " m, dt = " << dt << " s, c2_dt2 = " << c2_dt2 << ", gdt = " << gdt << ", inv_h2 = " << inv_h2 << std::endl;
+    //std::cout << "Simulation parameters: c = " << c << " m/s, h = " << h << " m, dt = " << dt << " s, c2_dt2 = " << c2_dt2 << ", gdt = " << gdt << ", inv_h2 = " << inv_h2 << std::endl;
+    Logger::getInstance().log("Simulation parameters: c = " + std::to_string(c) + " m/s, h = " + std::to_string(h) +
+                               " m, dt = " + std::to_string(dt) + " s, c2_dt2 = " + std::to_string(c2_dt2) +
+                               ", gdt = " + std::to_string(gdt) + ", inv_h2 = " + std::to_string(inv_h2),
+                               LOGGER_NONCRITIAL_INFO);
+    
+    const float simulation_fs = 1.f / dt;
+    allocFilterCoeffs(vector_space.get(), 1);
+
+    BiquadCoeffs coeffs = computeHighpassBiquad(simulation_fs, 20.f, 0.3f, 1.f);
+    grid.biquad_b0[0] = coeffs.b0;
+    grid.biquad_b1[0] = coeffs.b1;
+    grid.biquad_b2[0] = coeffs.b2;
+    grid.biquad_a1[0] = coeffs.a1;
+    grid.biquad_a2[0] = coeffs.a2;
+
+    std::cout << "Filter coefficients: b0 = " << coeffs.b0 << ", b1 = " << coeffs.b1
+              << ", b2 = " << coeffs.b2 << ", a1 = " << coeffs.a1 << ", a2 = " << coeffs.a2 << std::endl;
+
+    uploadFilterCoeffsToGPU(vector_space.get());
+    
 
     auto start = std::chrono::high_resolution_clock::now();
-    std::cout << "Starting simulation with " << num_simulation_steps << " steps..." << std::endl;
+    //std::cout << "Starting simulation with " << num_simulation_steps << " steps..." << std::endl;
+    Logger::getInstance().log("Starting simulation with " + std::to_string(num_simulation_steps) + " steps...", LOGGER_CRITICAL_INFO);
     fdtd_start_simulation(vector_space.get(), num_simulation_steps);
     // initPressureSphere(vector_space.get(), centerx, centery, centerz, 20, 1.f, true); // Initialize a pressure sphere in the center of the grid
     updateCurrentGridFromGPU(vector_space.get());
@@ -907,7 +965,8 @@ void Simulator::simulate()
             }
         }
         if(!shouldContinue){
-            std::cout << "RMS threshold reached, stopping simulation." << std::endl;
+            //std::cout << "RMS threshold reached, stopping simulation." << std::endl;
+            Logger::getInstance().log("RMS threshold reached, stopping simulation.", LOGGER_SUCCESS);
             break;
         }
     }
@@ -924,7 +983,8 @@ void Simulator::simulate()
     float length_seconds = (float)num_simulation_steps * dt;
     size_t num_samples = (float)sample_rate * length_seconds;
     out_file.setNumSamplesPerChannel(num_samples);
-    std::cout << "Writing audio file with " << num_samples << " samples, length: " << length_seconds << " seconds." << std::endl;
+    //std::cout << "Writing audio file with " << num_samples << " samples, length: " << length_seconds << " seconds." << std::endl;
+    Logger::getInstance().log("Writing audio file with " + std::to_string(num_samples) + " samples, length: " + std::to_string(length_seconds) + " seconds.", LOGGER_CRITICAL_INFO);
 
     std::vector<std::vector<float>> audio_data;
     audio_data.resize(1); // 1 channel
@@ -946,15 +1006,18 @@ void Simulator::simulate()
     out_file.setAudioBuffer(audio_data);
 
     out_file.save("output_audio.wav");
-    std::cout << "Audio data written to output_audio.wav" << std::endl;
+    //std::cout << "Audio data written to output_audio.wav" << std::endl;
+    Logger::getInstance().log("Audio data written to output_audio.wav", LOGGER_NONCRITIAL_INFO);
 
     // Now p_curr contains the final pressure values, we can render the final image
     // renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);
 
-    std::cout << "Simulation completed after " << num_simulation_steps << " steps." << std::endl;
+    //std::cout << "Simulation completed after " << num_simulation_steps << " steps." << std::endl;
+    Logger::getInstance().log("Simulation completed after " + std::to_string(num_simulation_steps) + " steps.", LOGGER_SUCCESS);
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "Total simulation time: " << duration << " ms" << std::endl;
+    //std::cout << "Total simulation time: " << duration << " ms" << std::endl;
+    Logger::getInstance().log("Total simulation time: " + std::to_string(duration) + " ms", LOGGER_NONCRITIAL_INFO);
     // renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);
 
     if (true)

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "args.hxx"
 #include "simulator/simulator.h"
+#include "util/logger.h"
 
 int main(int argc, char *argv[]) {
     args::ArgumentParser parser("Virtual Impulse Response Synthesizer");
@@ -11,6 +12,12 @@ int main(int argc, char *argv[]) {
     args::HelpFlag help(arguments, "help", "Display help menu", { 'h', "help" });
     args::ValueFlag<std::string> outputFile(arguments, "output", "Output file name", { 'o', "output" });
     args::ValueFlag<std::string> inputFile(arguments, "input", "Input file name", { 'i', "input" });
+    
+    Logger::getInstance().init(
+        static_cast<unsigned int>(
+            LOGGER_ERROR | LOGGER_WARNING | LOGGER_DEBUG | LOGGER_NONCRITIAL_INFO | LOGGER_CRITICAL_INFO | LOGGER_SUCCESS
+        )
+    );
 
     try
     {
@@ -39,7 +46,8 @@ int main(int argc, char *argv[]) {
         if (inputFile) {
             simulator->loadConfig(args::get(inputFile), false);
         } else {
-            std::cerr << "No input file specified for rendering." << std::endl;
+            Logger::getInstance().log("No input file specified for rendering.", LOGGER_ERROR);
+            delete simulator;
             return 1;
         }
 
@@ -47,7 +55,8 @@ int main(int argc, char *argv[]) {
             std::cout << "Rendering scene to file: " << args::get(outputFile) << std::endl;
             simulator->renderImageToFile({7, 7, 7}, args::get(outputFile));
         } else {
-            std::cerr << "No output file specified for rendering." << std::endl;
+            Logger::getInstance().log("No output file specified for rendering.", LOGGER_ERROR);
+            delete simulator;
             return 1;
         }
         delete simulator;
@@ -60,12 +69,12 @@ int main(int argc, char *argv[]) {
             if(simulator->loadConfig(args::get(inputFile))){
                 std::cout << "Loaded simulation configuration from: " << args::get(inputFile) << std::endl;
             }else{
-                std::cerr << "Failed to load simulation configuration from: " << args::get(inputFile) << std::endl;
+                Logger::getInstance().log("Failed to load simulation configuration from: " + args::get(inputFile), LOGGER_ERROR);
                 delete simulator;
                 return 1;
             }
         }else{
-            std::cerr << "No config file specified for simulation." << std::endl;
+            Logger::getInstance().log("No input file specified for simulation.", LOGGER_ERROR);
             return 1;
         }
 

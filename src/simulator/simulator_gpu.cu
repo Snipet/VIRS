@@ -176,9 +176,10 @@ __global__ void fdtd_kernel_boundary(
 __global__ void fdtd_kernel_boundary_biquad(
                             const float*    __restrict pCurr,
                             float*    __restrict pNext,
-                            const float*    __restrict filter_coeffs[5],
+                            float*   __restrict pPrev,
+                             float*    filter_coeffs[5],
                             const size_t    __restrict num_filter_sections,
-                            float* __restrict (*filter_states[6])[4],
+                            float* (*filter_states[6])[4],
                             const uint8_t*  __restrict flags,
                             const uint8_t*  __restrict normals,
                             const uint32_t* __restrict boundary_indices)
@@ -195,13 +196,15 @@ __global__ void fdtd_kernel_boundary_biquad(
 
         float sum = 0.f;
         size_t num_active_components = 0;
+
+        float driving_pressure_change = pCurr[idx] - pPrev[idx];
         
         // POSITIVE X
         if(normals[idx] & K_NORMAL_POS_X){
             float inc = (x + 1 < d_Nx && flags[idx + 1] == 0) ? pCurr[idx + 1] : p_c;
-            float section_in = inc;
+            float section_in = driving_pressure_change;
             float section_out = inc;
-
+            float filter_sum = 0.f;
             for(int s = 0; s < num_filter_sections; ++s){
                 size_t section_idx = i * num_filter_sections + s;
                 float* x1 = &(*filter_states[0])[0][section_idx];
@@ -220,18 +223,19 @@ __global__ void fdtd_kernel_boundary_biquad(
                 *x1 = section_in;
                 *y2 = *y1;
                 *y1 = section_out;
-
-                section_in = section_out; // Prepare for next section
+                filter_sum += section_out;
+                //section_in = section_out; // Prepare for next section
             }
-            sum += section_out;
+            sum += filter_sum;
             num_active_components++;
         }
 
         // NEGATIVE X
         if(normals[idx] & K_NORMAL_NEG_X){
             float inc = (x - 1 < d_Nx && flags[idx - 1] == 0) ? pCurr[idx - 1] : p_c;
-            float section_in = inc;
+            float section_in = driving_pressure_change;
             float section_out = inc;
+            float filter_sum = 0.f;
 
             for(int s = 0; s < num_filter_sections; ++s){
                 size_t section_idx = i * num_filter_sections + s;
@@ -252,18 +256,19 @@ __global__ void fdtd_kernel_boundary_biquad(
                 *y2 = *y1;
                 *y1 = section_out;
 
-                section_in = section_out; // Prepare for next section
+                filter_sum += section_out;
+                //section_in = section_out; // Prepare for next section
             }
-            sum += section_out;
+            sum += filter_sum;
             num_active_components++;
         }
 
         // POSITIVE Y
         if(normals[idx] & K_NORMAL_POS_Y){
             float inc = (y + 1 < d_Ny && flags[idx + d_Nx] == 0) ? pCurr[idx + d_Nx] : p_c;
-            float section_in = inc;
+            float section_in = driving_pressure_change;
             float section_out = inc;
-
+            float filter_sum = 0.f;
             for(int s = 0; s < num_filter_sections; ++s){
                 size_t section_idx = i * num_filter_sections + s;
                 float* x1 = &(*filter_states[2])[0][section_idx];
@@ -283,17 +288,19 @@ __global__ void fdtd_kernel_boundary_biquad(
                 *y2 = *y1;
                 *y1 = section_out;
 
-                section_in = section_out; // Prepare for next section
+                filter_sum += section_out;
+                //section_in = section_out; // Prepare for next section
             }
-            sum += section_out;
+            sum += filter_sum;
             num_active_components++;
         }
 
         // NEGATIVE Y
         if(normals[idx] & K_NORMAL_NEG_Y){
             float inc = (y - 1 >= 0 && flags[idx - d_Nx] == 0) ? pCurr[idx - d_Nx] : p_c;
-            float section_in = inc;
+            float section_in = driving_pressure_change;
             float section_out = inc;
+            float filter_sum = 0.f;
 
             for(int s = 0; s < num_filter_sections; ++s){
                 size_t section_idx = i * num_filter_sections + s;
@@ -314,18 +321,19 @@ __global__ void fdtd_kernel_boundary_biquad(
                 *y2 = *y1;
                 *y1 = section_out;
 
-                section_in = section_out; // Prepare for next section
+                filter_sum += section_out;
+                //section_in = section_out; // Prepare for next section
             }
-            sum += section_out;
+            sum += filter_sum;
             num_active_components++;
         }
 
         // POSITIVE Z
         if(normals[idx] & K_NORMAL_POS_Z){
             float inc = (z + 1 < d_Nz && flags[idx + d_Nx * d_Ny] == 0) ? pCurr[idx + d_Nx * d_Ny] : p_c;
-            float section_in = inc;
+            float section_in = driving_pressure_change;
             float section_out = inc;
-
+            float filter_sum = 0.f;
             for(int s = 0; s < num_filter_sections; ++s){
                 size_t section_idx = i * num_filter_sections + s;
                 float* x1 = &(*filter_states[4])[0][section_idx];
@@ -345,18 +353,19 @@ __global__ void fdtd_kernel_boundary_biquad(
                 *y2 = *y1;
                 *y1 = section_out;
 
-                section_in = section_out; // Prepare for next section
+                filter_sum += section_out;
+                //section_in = section_out; // Prepare for next section
             }
-            sum += section_out;
+            sum += filter_sum;
             num_active_components++;
         }
 
         // NEGATIVE Z
         if(normals[idx] & K_NORMAL_NEG_Z){
             float inc = (z - 1 >= 0 && flags[idx - d_Nx * d_Ny] == 0) ? pCurr[idx - d_Nx * d_Ny] : p_c;
-            float section_in = inc;
+            float section_in = driving_pressure_change;
             float section_out = inc;
-
+            float filter_sum = 0.f;
             for(int s = 0; s < num_filter_sections; ++s){
                 size_t section_idx = i * num_filter_sections + s;
                 float* x1 = &(*filter_states[5])[0][section_idx];
@@ -376,14 +385,15 @@ __global__ void fdtd_kernel_boundary_biquad(
                 *y2 = *y1;
                 *y1 = section_out;
 
-                section_in = section_out; // Prepare for next section
+                filter_sum += section_out;
+                //section_in = section_out; // Prepare for next section
             }
-            sum += section_out;
+            sum += filter_sum;
             num_active_components++;
         }
 
         if(num_active_components > 0){
-            pNext[idx] = sum / (float)num_active_components; // Average the contributions
+            pNext[idx] = pNext[idx] - (434.f * d_dt / d_dx) * sum;
         } else {
             pNext[idx] = 0.f; // This should never occur, but just in case.
         }
@@ -487,7 +497,8 @@ extern "C"
         size_t threads_per_block_boundary = 256;
         size_t num_blocks_boundary = (g.boundary_indices_size + threads_per_block_boundary - 1) / threads_per_block_boundary;
         fdtd_kernel<<<G, B>>>(d_prev, d_curr, d_next, d_flags);
-        fdtd_kernel_boundary<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_zeta, d_next, d_flags, d_normals, g.d_boundary_indices);
+        //fdtd_kernel_boundary<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_zeta, d_next, d_flags, d_normals, g.d_boundary_indices);
+        fdtd_kernel_boundary_biquad<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, g.d_biquad_coeffs_ptr, g.num_filter_sections, g.d_biquad_states, d_flags, d_normals, g.d_boundary_indices);
 
         // CUDA_CHECK(cudaGetLastError());        // macro or manual check
         // CUDA_CHECK(cudaDeviceSynchronize());   // catches bad constants immediately

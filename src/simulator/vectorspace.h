@@ -73,9 +73,9 @@ struct Grid
 	size_t num_materials;
 	float *biquad_a1, *biquad_a2, *biquad_b0, *biquad_b1, *biquad_b2;
 	float *d_biquad_a1, *d_biquad_a2, *d_biquad_b0, *d_biquad_b1, *d_biquad_b2;
-	float *d_biquad_coeffs_ptr[6];
+	float *d_biquad_coeffs_ptr[5];
 
-	size_t num_biquad_filters;
+	size_t num_filter_sections;
 
 	// x positive
 	float *biquad_xp_x1, *biquad_xp_x2, *biquad_xp_y1, *biquad_xp_y2;

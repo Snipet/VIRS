@@ -133,7 +133,7 @@ void allocFilterStates(VectorSpace* space){
     std::cout << "Allocating filter states on GPU." << std::endl;
    
     Grid& grid = space->getGrid();
-    size_t num_biquad_sections = grid.num_biquad_filters;
+    size_t num_biquad_sections = grid.num_filter_sections;
     size_t num_boundary_voxels = grid.boundary_indices_size;
     size_t N = num_biquad_sections * num_boundary_voxels;
 
@@ -330,5 +330,20 @@ void allocFilterCoeffs(VectorSpace* space, const size_t num_materials){
 
 #else
     std::cout << "No GPU support, skipping filter coefficients allocation." << std::endl;
+#endif // VIRS_WITH_CUDA
+}
+
+void uploadFilterCoeffsToGPU(VectorSpace* space) {
+#ifdef VIRS_WITH_CUDA
+    std::cout << "Uploading filter coefficients to GPU." << std::endl;
+
+    Grid& grid = space->getGrid();
+    cudaMemcpy(grid.d_biquad_a1, grid.biquad_a1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_a2, grid.biquad_a2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_b0, grid.biquad_b0, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_b1, grid.biquad_b1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    cudaMemcpy(grid.d_biquad_b2, grid.biquad_b2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+#else
+    std::cout << "No GPU support, skipping filter coefficients upload." << std::endl;
 #endif // VIRS_WITH_CUDA
 }

@@ -22,4 +22,5 @@ void uploadPZetaToGPU(VectorSpace* space);
 void uploadBoundaryIndicesToGPU(VectorSpace* space);
 void allocFilterStates(VectorSpace* space);
 void allocFilterCoeffs(VectorSpace* space, const size_t num_materials);
+void uploadFilterCoeffsToGPU(VectorSpace* space);
 
