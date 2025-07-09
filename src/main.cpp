@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "args.hxx"
 #include "simulator/simulator.h"
+#include "simulator/1D_simulation.h"
 #include "util/logger.h"
 
 int main(int argc, char *argv[]) {
@@ -8,6 +9,7 @@ int main(int argc, char *argv[]) {
     args::Group commands(parser, "commands");
     args::Command simulateCommand(commands, "simulate", "Run a simulation");
     args::Command renderSceneCommand(commands, "renderscene", "Render a scene to an image file");
+    args::Command simulate1DCommand(commands, "simulate1D", "Run a 1D simulation)");
     args::Group arguments(parser, "arguments",args::Group::Validators::DontCare, args::Options::Global);
     args::HelpFlag help(arguments, "help", "Display help menu", { 'h', "help" });
     args::ValueFlag<std::string> outputFile(arguments, "output", "Output file name", { 'o', "output" });
@@ -80,6 +82,12 @@ int main(int argc, char *argv[]) {
 
         simulator->simulate();
         delete simulator;
+    }
+
+    if(simulate1DCommand){
+        Simulation1D* simulation1D = new Simulation1D();
+        simulation1D->simulate(20000);
+        delete simulation1D;
     }
     return 0;
 }
