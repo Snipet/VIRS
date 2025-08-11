@@ -8,6 +8,7 @@
 #include "normals.h"
 #include "../util/logger.h"
 #include "biquad.h"
+#include "kfr/include/kfr/dsp.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -15,6 +16,8 @@
 
 #define MAX_AUDIO_FREQ 22050.f
 #define SIMULATION_OVERSAMPLING 1
+
+using namespace kfr;
 
 static Vec3f normalize(const Vec3f &v)
 {
@@ -473,6 +476,100 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
         // Calculate normals
         //std::cout << "Calculating normals..." << std::endl;
         Logger::getInstance().log("Calculating normals...", LOGGER_NONCRITIAL_INFO);
+        int max_neighbors = 0;
+        for(int k = 1; k < grid.Nz - 1; ++k)
+        {
+            for(int j = 1; j < grid.Ny - 1; ++j)
+            {
+                for(int i = 1; i < grid.Nx - 1; ++i)
+                {
+                    size_t idx = grid.idx(i, j, k);
+                    if(true){
+                        uint8_t current_normal_code = static_cast<uint8_t>(ENormals::kNone);
+
+
+                        int neighbor_count = 0;
+                        //Check -x neighbor
+                        if(i - 1 >= 0 && grid.flags[grid.idx(i - 1, j, k)] == 0){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kXNegative);
+                            neighbor_count++;
+                        }
+
+                        //Check +x neighbor
+                        if(i + 1 < grid.Nx && grid.flags[grid.idx(i + 1, j, k)] == 0){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kXPositive);
+                            neighbor_count++;
+                        }
+
+                        //Check -y neighbor
+                        if(j - 1 >= 0 && grid.flags[grid.idx(i, j - 1, k)] == 0){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kYNegative);
+                            neighbor_count++;
+                        }
+
+                        //Check +y neighbor
+                        if(j + 1 < grid.Ny && grid.flags[grid.idx(i, j + 1, k)] == 0){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kYPositive);
+                            neighbor_count++;
+                        }
+
+                        //Check -z neighbor
+                        if(k - 1 >= 0 && grid.flags[grid.idx(i, j, k - 1)] == 0){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kZNegative);
+                            neighbor_count++;
+                        }
+
+                        //Check +z neighbor
+                        if(k + 1 < grid.Nz && grid.flags[grid.idx(i, j, k + 1)] == 0){
+                            current_normal_code |= static_cast<uint8_t>(ENormals::kZPositive);
+                            neighbor_count++;
+                        }
+
+                        if(neighbor_count > max_neighbors){
+                            max_neighbors = neighbor_count;
+                        }
+                        grid.normals[idx] = current_normal_code;
+
+                        // // Check for any normal errors
+                        // if(grid.normals[idx] == static_cast<uint8_t>(ENormals::kNone))
+                        // {
+                        //     //std::cout << "Warning: No normals found for bounddary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                        //     Logger::getInstance().log("Warning: No normals found for boundary cell at (" + std::to_string(i) + ", " +
+                        //                                std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
+                        // }
+
+                        if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kXPositive)) &&
+                            (grid.normals[idx] & static_cast<uint8_t>(ENormals::kXNegative))) {
+                            //std::cout << "Warning: Both X normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                           // Logger::getInstance().log("Warning: Both X normals found for boundary cell at (" + std::to_string(i) + ", " +
+                             //                          std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
+                        }
+
+                        if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kYPositive)) &&
+                            (grid.normals[idx] & static_cast<uint8_t>(ENormals::kYNegative))) {
+                            //std::cout << "Warning: Both Y normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                           // Logger::getInstance().log("Warning: Both Y normals found for boundary cell at (" + std::to_string(i) + ", " +
+                             //                          std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
+                        }
+
+                        if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kZPositive)) &&
+                            (grid.normals[idx] & static_cast<uint8_t>(ENormals::kZNegative))) {
+                            //std::cout << "Warning: Both Z normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
+                            //Logger::getInstance().log("Warning: Both Z normals found for boundary cell at (" + std::to_string(i) + ", " +
+                              //                         std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
+                        }
+                    }
+                }
+            }
+        }
+        //std::cout << "Normals calculated." << std::endl;
+
+        std::cout << "Max neighbors for a boundary cell: " << max_neighbors << std::endl;
+        Logger::getInstance().log("Normals calculated.", LOGGER_NONCRITIAL_INFO);
+        uploadNormalsToGPU(vector_space.get()); // Upload normals to GPU
+
+        // Count number of boundary cells for boundary indices
+        uint32_t boundary_count = 0;
         for(int k = 1; k < grid.Nz - 1; ++k)
         {
             for(int j = 1; j < grid.Ny - 1; ++j)
@@ -481,80 +578,31 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
                 {
                     size_t idx = grid.idx(i, j, k);
                     if(grid.flags[idx] == 2){
-                        uint8_t current_normal_code = static_cast<uint8_t>(ENormals::kNone);
-                        grid.boundary_indices_size++;
-
-                        //Check -x neighbor
-                        if(i - 1 >= 0 && grid.flags[grid.idx(i - 1, j, k)] == 1){
-                            current_normal_code |= static_cast<uint8_t>(ENormals::kXPositive);
-                        }
-
-                        //Check +x neighbor
-                        if(i + 1 < grid.Nx && grid.flags[grid.idx(i + 1, j, k)] == 1){
-                            current_normal_code |= static_cast<uint8_t>(ENormals::kXNegative);
-                        }
-
-                        //Check -y neighbor
-                        if(j - 1 >= 0 && grid.flags[grid.idx(i, j - 1, k)] == 1){
-                            current_normal_code |= static_cast<uint8_t>(ENormals::kYPositive);
-                        }
-
-                        //Check +y neighbor
-                        if(j + 1 < grid.Ny && grid.flags[grid.idx(i, j + 1, k)] == 1){
-                            current_normal_code |= static_cast<uint8_t>(ENormals::kYNegative);
-                        }
-
-                        //Check -z neighbor
-                        if(k - 1 >= 0 && grid.flags[grid.idx(i, j, k - 1)] == 1){
-                            current_normal_code |= static_cast<uint8_t>(ENormals::kZPositive);
-                        }
-
-                        //Check +z neighbor
-                        if(k + 1 < grid.Nz && grid.flags[grid.idx(i, j, k + 1)] == 1){
-                            current_normal_code |= static_cast<uint8_t>(ENormals::kZNegative);
-                        }
-
-                        grid.normals[idx] = current_normal_code;
-
-                        // Check for any normal errors
-                        if(grid.normals[idx] == static_cast<uint8_t>(ENormals::kNone))
-                        {
-                            //std::cout << "Warning: No normals found for bounddary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
-                            Logger::getInstance().log("Warning: No normals found for boundary cell at (" + std::to_string(i) + ", " +
-                                                       std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
-                        }
-
-                        if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kXPositive)) &&
-                            (grid.normals[idx] & static_cast<uint8_t>(ENormals::kXNegative))) {
-                            //std::cout << "Warning: Both X normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
-                            Logger::getInstance().log("Warning: Both X normals found for boundary cell at (" + std::to_string(i) + ", " +
-                                                       std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
-                        }
-
-                        if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kYPositive)) &&
-                            (grid.normals[idx] & static_cast<uint8_t>(ENormals::kYNegative))) {
-                            //std::cout << "Warning: Both Y normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
-                            Logger::getInstance().log("Warning: Both Y normals found for boundary cell at (" + std::to_string(i) + ", " +
-                                                       std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
-                        }
-
-                        if ((grid.normals[idx] & static_cast<uint8_t>(ENormals::kZPositive)) &&
-                            (grid.normals[idx] & static_cast<uint8_t>(ENormals::kZNegative))) {
-                            //std::cout << "Warning: Both Z normals found for boundary cell at (" << i << ", " << j << ", " << k << ")." << std::endl;
-                            Logger::getInstance().log("Warning: Both Z normals found for boundary cell at (" + std::to_string(i) + ", " +
-                                                       std::to_string(j) + ", " + std::to_string(k) + ").", LOGGER_WARNING);
-                        }
+                        boundary_count++;
                     }
                 }
             }
         }
-        //std::cout << "Normals calculated." << std::endl;
-        Logger::getInstance().log("Normals calculated.", LOGGER_NONCRITIAL_INFO);
-        uploadNormalsToGPU(vector_space.get()); // Upload normals to GPU
+
+        grid.boundary_indices_size = boundary_count;
 
         // Calculate pZeta and set boundary indices
         grid.boundary_indices = new uint32_t[grid.boundary_indices_size];
         size_t boundary_index = 0;
+
+        for(int k = 1; k < grid.Nz - 1; ++k)
+        {
+            for(int j = 1; j < grid.Ny - 1; ++j)
+            {
+                for(int i = 1; i < grid.Nx - 1; ++i)
+                {
+                    size_t idx = grid.idx(i, j, k);
+                    if(grid.flags[idx] == 2){
+                        grid.boundary_indices[boundary_index++] = idx;
+                    }
+                }
+            }
+        }
 
         float target_Rp_magnitude = 0.93f;
         float target_zeta = (1.f + target_Rp_magnitude) / (1.f - target_Rp_magnitude);
@@ -572,7 +620,7 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
                     size_t idx = grid.idx(i, j, k);
                     if(grid.flags[idx] == 2){
                         grid.pZeta[idx] = target_zeta;
-                        grid.boundary_indices[boundary_index++] = idx;
+                    
 
                     }else{
                         grid.pZeta[idx] = 0.f; // No pZeta for non-boundary cells
@@ -901,7 +949,7 @@ void Simulator::simulate()
     const float simulation_fs = 1.f / dt;
     allocFilterCoeffs(vector_space.get(), 1);
 
-    BiquadCoeffs coeffs = computeHighpassBiquad(simulation_fs, 20.f, 0.3f, 1.f);
+    BiquadCoeffs coeffs = computeHighpassBiquad(simulation_fs, 440.f, 0.1f, 1.f);
     grid.biquad_b0[0] = coeffs.b0;
     grid.biquad_b1[0] = coeffs.b1;
     grid.biquad_b2[0] = coeffs.b2;
@@ -976,7 +1024,7 @@ void Simulator::simulate()
     // We now have the raw pressures from the simulation. However, we must convert them to audio data.
     float *out_audio_data = vector_space->getGrid().p_audio_output;
     AudioFile<float> out_file;
-    unsigned int sample_rate = 44100;
+    unsigned int sample_rate = 48000 * 2;
     out_file.setSampleRate(sample_rate);
     out_file.setBitDepth(32);
     out_file.setNumChannels(1);
@@ -986,21 +1034,31 @@ void Simulator::simulate()
     //std::cout << "Writing audio file with " << num_samples << " samples, length: " << length_seconds << " seconds." << std::endl;
     Logger::getInstance().log("Writing audio file with " + std::to_string(num_samples) + " samples, length: " + std::to_string(length_seconds) + " seconds.", LOGGER_CRITICAL_INFO);
 
+    float simulation_sample_rate = 1.f / dt;
+    // for (int i = 0; i < num_samples; i++)
+    // {
+    //     float t = (float)i / (float)sample_rate;
+    //     float index = t * simulation_sample_rate;
+    //     size_t bottom_idx = static_cast<size_t>(std::floor(index));
+    //     size_t top_idx = bottom_idx + 1;
+    //     float frac = index - (float)bottom_idx;
+    //     float bottom_value = out_audio_data[bottom_idx];
+    //     float top_value = out_audio_data[top_idx];
+    //     float value = bottom_value * (1.f - frac) + top_value * frac; // Linear interpolation
+    //     audio_data[0][i] = value;
+    // }
+
+    auto r = resampler<float>(resample_quality::high, sample_rate, (size_t)simulation_sample_rate);
+    univector<float> xin(out_audio_data, out_audio_data + num_simulation_steps);
+    univector<float> xout(num_samples);
+
     std::vector<std::vector<float>> audio_data;
     audio_data.resize(1); // 1 channel
-    audio_data[0].resize(num_samples, 0.f); // Initialize with zeros
-    float simulation_sample_rate = 1.f / dt;
-    for (int i = 0; i < num_samples; i++)
+    audio_data[0].resize(num_samples + r.get_delay(), 0.f); // Initialize with zeros
+    r.process(xout, xin);
+    for (size_t i = 0; i < num_samples; i++)
     {
-        float t = (float)i / (float)sample_rate;
-        float index = t * simulation_sample_rate;
-        size_t bottom_idx = static_cast<size_t>(std::floor(index));
-        size_t top_idx = bottom_idx + 1;
-        float frac = index - (float)bottom_idx;
-        float bottom_value = out_audio_data[bottom_idx];
-        float top_value = out_audio_data[top_idx];
-        float value = bottom_value * (1.f - frac) + top_value * frac; // Linear interpolation
-        audio_data[0][i] = value;
+        audio_data[0][i] = xout[i];
     }
 
     out_file.setAudioBuffer(audio_data);

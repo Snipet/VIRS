@@ -22,6 +22,9 @@ if (VIRS_WITH_CUDA)
     file(GLOB_RECURSE SRC_CU CONFIGURE_DEPENDS src/*.cu)
 endif()
 
+
+add_subdirectory(third_party/kfr)
+
 add_executable(VIRS ${SRC_CPP} ${TINYOBJ_SRC} ${SRC_CU})
 
 
@@ -34,6 +37,8 @@ target_include_directories(VIRS PRIVATE
     third_party/libpng
     third_party/AudioFile
     third_party/json/include
+    third_party
+    ${Boost_INCLUDE_DIRS}
 )
 
 target_compile_options(VIRS PRIVATE
@@ -73,6 +78,7 @@ find_package(TBB       REQUIRED)
 find_package(ZLIB      REQUIRED)
 #find_package(benchmark REQUIRED)
 find_package(PNG       REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system)
 
 target_link_libraries(VIRS PRIVATE
     ${EMBREE_LIBS}
@@ -80,6 +86,8 @@ target_link_libraries(VIRS PRIVATE
     ZLIB::ZLIB
     PNG::PNG
 #   benchmark::benchmark
+    Boost::system
+    kfr kfr_dsp
 )
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

@@ -266,95 +266,35 @@ void fdtd_gpu_cleanup(VectorSpace* space) {
 
     //Clean up filter memory
     if(grid.allocated_filter_memory){
-        delete[] grid.biquad_xp_x1;
-        delete[] grid.biquad_xp_x2;
-        delete[] grid.biquad_xp_y1;
-        delete[] grid.biquad_xp_y2;
+        delete[] grid.biquad_a1;
+        delete[] grid.biquad_a2;
+        delete[] grid.biquad_b0;
+        delete[] grid.biquad_b1;
+        delete[] grid.biquad_b2;
+        delete[] grid.biquad_state_ptr;
 
-        delete[] grid.biquad_xn_x1;
-        delete[] grid.biquad_xn_x2;
-        delete[] grid.biquad_xn_y1;
-        delete[] grid.biquad_xn_y2;
+        cudaFree(grid.d_biquad_a1);
+        cudaFree(grid.d_biquad_a2);
+        cudaFree(grid.d_biquad_b0);
+        cudaFree(grid.d_biquad_b1);
+        cudaFree(grid.d_biquad_b2);
+        cudaFree(grid.d_biquad_state_ptr);
 
-        delete[] grid.biquad_yp_x1;
-        delete[] grid.biquad_yp_x2;
-        delete[] grid.biquad_yp_y1;
-        delete[] grid.biquad_yp_y2;
+        grid.biquad_a1 = nullptr;
+        grid.biquad_a2 = nullptr;
+        grid.biquad_b0 = nullptr;
+        grid.biquad_b1 = nullptr;
+        grid.biquad_b2 = nullptr;
+        grid.biquad_state_ptr = nullptr;
 
-        delete[] grid.biquad_yn_x1;
-        delete[] grid.biquad_yn_x2;
-        delete[] grid.biquad_yn_y1;
-        delete[] grid.biquad_yn_y2;
-
-        delete[] grid.biquad_zp_x1;
-        delete[] grid.biquad_zp_x2;
-        delete[] grid.biquad_zp_y1;
-        delete[] grid.biquad_zp_y2;
-
-        delete[] grid.biquad_zn_x1;
-        delete[] grid.biquad_zn_x2;
-        delete[] grid.biquad_zn_y1;
-        delete[] grid.biquad_zn_y2;
-
-        grid.biquad_xp_x1 = nullptr;
-        grid.biquad_xp_x2 = nullptr;
-        grid.biquad_xp_y1 = nullptr;
-        grid.biquad_xp_y2 = nullptr;
-
-        grid.biquad_xn_x1 = nullptr;
-        grid.biquad_xn_x2 = nullptr;
-        grid.biquad_xn_y1 = nullptr;
-        grid.biquad_xn_y2 = nullptr;
-
-        grid.biquad_yp_x1 = nullptr;
-        grid.biquad_yp_x2 = nullptr;
-        grid.biquad_yp_y1 = nullptr;
-        grid.biquad_yp_y2 = nullptr;
-
-        grid.biquad_yn_x1 = nullptr;
-        grid.biquad_yn_x2 = nullptr;
-        grid.biquad_yn_y1 = nullptr;
-        grid.biquad_yn_y2 = nullptr;
-
-        grid.biquad_zp_x1 = nullptr;
-        grid.biquad_zp_x2 = nullptr;
-        grid.biquad_zp_y1 = nullptr;
-        grid.biquad_zp_y2 = nullptr;
-
-        grid.biquad_zn_x1 = nullptr;
-        grid.biquad_zn_x2 = nullptr;
-        grid.biquad_zn_y1 = nullptr;
-        grid.biquad_zn_y2 = nullptr;
-
-        cudaFree(grid.d_biquad_xp_x1);
-        cudaFree(grid.d_biquad_xp_x2);
-        cudaFree(grid.d_biquad_xp_y1);
-        cudaFree(grid.d_biquad_xp_y2);
-
-        cudaFree(grid.d_biquad_xn_x1);
-        cudaFree(grid.d_biquad_xn_x2);
-        cudaFree(grid.d_biquad_xn_y1);
-        cudaFree(grid.d_biquad_xn_y2);
-
-        cudaFree(grid.d_biquad_yp_x1);
-        cudaFree(grid.d_biquad_yp_x2);
-        cudaFree(grid.d_biquad_yp_y1);
-        cudaFree(grid.d_biquad_yp_y2);
+        grid.d_biquad_a1 = nullptr;
+        grid.d_biquad_a2 = nullptr;
+        grid.d_biquad_b0 = nullptr;
+        grid.d_biquad_b1 = nullptr;
+        grid.d_biquad_b2 = nullptr;
+        grid.d_biquad_state_ptr = nullptr;
         
-        cudaFree(grid.d_biquad_yn_x1);
-        cudaFree(grid.d_biquad_yn_x2);
-        cudaFree(grid.d_biquad_yn_y1);
-        cudaFree(grid.d_biquad_yn_y2);
-
-        cudaFree(grid.d_biquad_zp_x1);
-        cudaFree(grid.d_biquad_zp_x2);
-        cudaFree(grid.d_biquad_zp_y1);
-        cudaFree(grid.d_biquad_zp_y2);
-
-        cudaFree(grid.d_biquad_zn_x1);
-        cudaFree(grid.d_biquad_zn_x2);
-        cudaFree(grid.d_biquad_zn_y1);
-        cudaFree(grid.d_biquad_zn_y2);
+        grid.allocated_filter_memory = false;
     }
 
     std::cout << "GPU and CPU memory cleaned up successfully." << std::endl;

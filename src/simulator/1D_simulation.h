@@ -2,6 +2,18 @@
 #include <cstddef>
 #include <string>
 
+struct BoundaryState{
+    float b0, b1, a1;
+
+    float vh1 = 0.f;
+    float gh1 = 0.f;
+    float b;
+    float bd;
+    float bDh;
+    float bFh;
+    float beta;
+};
+
 class Simulation1D {
 public:
     Simulation1D();
@@ -43,11 +55,28 @@ private:
     size_t image_step;
     float lambda;
     float zeta;
+    float lo2;
 
     //Image generation
     unsigned int width;
     unsigned int height;
     unsigned char* framebuffer;
+
+    // Biquad coefficients and state
+    float b0, b1, b2, a1, a2;
+    float* left_filter_states;
+    float* right_filter_states;
+
+    BoundaryState left_boundary_state;
+    BoundaryState right_boundary_state;
+    
+    void createHighpass(float cutoff, float sampleRate);
+    void createBoundaryFilter(BoundaryState& state, float cutoff, float sampleRate);
+    float applyFilter(float input, float* filter_states);
+    float applyBoundaryFilter(BoundaryState& f, float du);
+
+    float left_psi;
+    float right_psi;
 
     void drawLine(unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, unsigned char r, unsigned char g, unsigned char b);
 };

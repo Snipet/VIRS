@@ -1,0 +1,10 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/ec2-user/VIRS/third_party/cmake_install.cmake",
+		"/home/ec2-user/VIRS/third_party/third_party/kfr/cmake_install.cmake",
+		"/home/ec2-user/VIRS/third_party/third_party/kfr/src/dsp/cmake_install.cmake",
+		"/home/ec2-user/VIRS/third_party/third_party/kfr/src/io/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

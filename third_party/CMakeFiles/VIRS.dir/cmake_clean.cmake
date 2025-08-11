@@ -1,0 +1,43 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/VIRS.dir/link.d"
+  "CMakeFiles/VIRS.dir/cmake_device_link.o"
+  "CMakeFiles/VIRS.dir/src/main.cpp.o"
+  "CMakeFiles/VIRS.dir/src/main.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/1D_simulation.cpp.o"
+  "CMakeFiles/VIRS.dir/src/simulator/1D_simulation.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/biquad.cpp.o"
+  "CMakeFiles/VIRS.dir/src/simulator/biquad.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/init_sphere.cu.o"
+  "CMakeFiles/VIRS.dir/src/simulator/init_sphere.cu.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator.cpp.o"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator_cpu.cpp.o"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator_cpu.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator_dispatch.cpp.o"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator_dispatch.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator_gpu.cpp.o"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator_gpu.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator_gpu.cu.o"
+  "CMakeFiles/VIRS.dir/src/simulator/simulator_gpu.cu.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/sponge_kernel.cu.o"
+  "CMakeFiles/VIRS.dir/src/simulator/sponge_kernel.cu.o.d"
+  "CMakeFiles/VIRS.dir/src/simulator/vectorspace.cpp.o"
+  "CMakeFiles/VIRS.dir/src/simulator/vectorspace.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/util/convolution.cpp.o"
+  "CMakeFiles/VIRS.dir/src/util/convolution.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/util/downsampling_filter_fir.cpp.o"
+  "CMakeFiles/VIRS.dir/src/util/downsampling_filter_fir.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/util/downsampling_filter_iir.cpp.o"
+  "CMakeFiles/VIRS.dir/src/util/downsampling_filter_iir.cpp.o.d"
+  "CMakeFiles/VIRS.dir/src/util/image.cpp.o"
+  "CMakeFiles/VIRS.dir/src/util/image.cpp.o.d"
+  "CMakeFiles/VIRS.dir/tinyobjloader/tiny_obj_loader.cc.o"
+  "CMakeFiles/VIRS.dir/tinyobjloader/tiny_obj_loader.cc.o.d"
+  "VIRS"
+  "VIRS.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CUDA CXX)
+  include(CMakeFiles/VIRS.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

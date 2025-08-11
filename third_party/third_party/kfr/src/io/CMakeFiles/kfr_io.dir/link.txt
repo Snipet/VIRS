@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../lib/libkfr_io.a "CMakeFiles/kfr_io.dir/audiofile-impl.cpp.o" CMakeFiles/kfr_io.dir/version.cpp.o
+/usr/bin/ranlib ../../lib/libkfr_io.a

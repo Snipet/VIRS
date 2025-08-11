@@ -21,3 +21,6 @@
 [submodule "third_party/AudioFile"]
 	path = third_party/AudioFile
 	url = https://github.com/adamstark/AudioFile.git
+[submodule "third_party/kfr"]
+	path = third_party/kfr
+	url = https://github.com/kfrlib/kfr.git

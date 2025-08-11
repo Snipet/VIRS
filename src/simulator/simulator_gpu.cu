@@ -1,14 +1,18 @@
 #include "vectorspace.h"
 #include <cuda_runtime.h>
 
-#define CUDA_CHECK(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+#define CUDA_CHECK(ans)                       \
+    {                                         \
+        gpuAssert((ans), __FILE__, __LINE__); \
+    }
 
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true)
 {
     if (code != cudaSuccess)
     {
-        fprintf(stderr,"CUDA Error: %s %s %d\n", cudaGetErrorString(code), file, line);
-        if (abort) exit(code);
+        fprintf(stderr, "CUDA Error: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort)
+            exit(code);
     }
 }
 
@@ -29,379 +33,146 @@ namespace
 
 }
 
-__global__ void fdtd_kernel(const float*  __restrict pPrev,
-                            const float*  __restrict pCurr,
-                            float*        __restrict pNext,
-                            const uint8_t*__restrict flags)
+__global__ void fdtd_kernel(const float *__restrict pPrev,
+                            const float *__restrict pCurr,
+                            float *__restrict pNext,
+                            const uint8_t *__restrict flags,
+                            const uint8_t *__restrict normals)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int z = threadIdx.z + blockIdx.z * blockDim.z;
 
-    if (x==0 || x>=d_Nx-1 || y==0 || y>=d_Ny-1 || z==0 || z>=d_Nz-1) return;
-    std::size_t idx = ( (std::size_t)z * d_Ny + y ) * d_Nx + x;
+    if (x == 0 || x >= d_Nx - 1 || y == 0 || y >= d_Ny - 1 || z == 0 || z >= d_Nz - 1)
+        return;
+    std::size_t idx = ((std::size_t)z * d_Ny + y) * d_Nx + x;
 
-    /* wall voxels stay zero */
-    if (flags[idx] == 1) { 
-        pNext[idx] = 0.0f; 
-        return; 
+    // Dirichlet boundary condition for walls
+    if (flags[idx] == 1)
+    {
+        pNext[idx] = 0.0f;
+        return;
     }
 
-    if(flags[idx] == 3) { // Source voxel
+    if (flags[idx] == 3)
+    {                                // Source voxel
         pNext[idx] = d_source_value; // Set source value
         return;
     }
 
-    if(flags[idx] == 0){
-        
+    if (flags[idx] == 0 || flags[idx] == 2) //Air cell
+    {
+
         float pCenter = pCurr[idx];
 
-        auto V = [&](int ix,int iy,int iz)->float {
-            std::size_t n = ( (std::size_t)iz * d_Ny + iy ) * d_Nx + ix;
-            if(flags[n] == 1 ) {
+        auto V = [&](int ix, int iy, int iz) -> float
+        {
+            std::size_t n = ((std::size_t)iz * d_Ny + iy) * d_Nx + ix;
+            if (flags[n] == 1)
+            {
                 return pCenter; // Wall voxel
-            }else{
+            }
+            else
+            {
                 return pCurr[n]; // Normal voxel
             }
         };
 
-        float lap = ( V(x+1,y,z) + V(x-1,y,z) +
-                    V(x,y+1,z) + V(x,y-1,z) +
-                    V(x,y,z+1) + V(x,y,z-1) - 6.0f*pCenter ) * d_inv_h2;
+        float lap = (V(x + 1, y, z) + V(x - 1, y, z) +
+                     V(x, y + 1, z) + V(x, y - 1, z) +
+                     V(x, y, z + 1) + V(x, y, z - 1) - 6.0f * pCenter) *
+                    d_inv_h2;
         pNext[idx] =
-            (2.0f) * pCenter
-            - (1.0f) * pPrev[idx]
-            + d_c2_dt2 * lap;
-        }
-}
+            (2.0f) * pCenter - (1.0f) * pPrev[idx] + d_c2_dt2 * lap;
 
 
-__global__ void fdtd_kernel_boundary(
-                            const float*  __restrict pCurr,
-                            const float*  __restrict pZeta,
-                            float*        __restrict pNext,
-                            const uint8_t*__restrict flags,
-                            const uint8_t*__restrict normals,
-                            const uint32_t* __restrict boundary_indices)
-{
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-
-    if(i < d_num_boundary_indices){
-        uint32_t idx = boundary_indices[i];
-        int x  = idx % d_Nx;
-        int y  = (idx / d_Nx) % d_Ny;
-        int z  = (idx / (d_Nx * d_Ny)) % d_Nz;
-        uint8_t normal_code = normals[idx];
-        float zeta_val = pZeta[idx];
-
-        if(normal_code != K_NORMAL_NONE && zeta_val > 0.0f){
-            float lambda = d_c_sound * d_dt / d_dx; // Wave speed
-            float term_lambda_over_zeta = lambda / zeta_val;
-            float denominator = 1.0f + term_lambda_over_zeta;
-            if(fabsf(denominator) > 1e-9f){
-                float B_coeff = (1.f - term_lambda_over_zeta) / denominator;
-                float A_coeff = (2.f * term_lambda_over_zeta) / denominator;
-                if(isfinite(A_coeff) && isfinite(B_coeff)){
-                    float p_curr_at_idx = pCurr[idx];
-                    float accumulated_A_p_air_neighbor = 0.0f;
-                    float accumulated_B_p_curr = 0.0f;
-                    int active_normal_components = 0;
-                    size_t neighbor_idx;
-
-                    // x direction
-                    if(normal_code & K_NORMAL_POS_X){
-                        active_normal_components++;
-                        if(x + 1 < d_Nx){
-                            neighbor_idx = idx + 1;
-                            accumulated_A_p_air_neighbor += A_coeff * (flags[neighbor_idx] == 0 ? pCurr[neighbor_idx] : p_curr_at_idx);
-                        }else{ accumulated_A_p_air_neighbor += A_coeff * p_curr_at_idx; }
-                        accumulated_B_p_curr += B_coeff * p_curr_at_idx;
-                    }
-
-                    if(normal_code & K_NORMAL_NEG_X){
-                        active_normal_components++;
-                        if(x - 1 >= 0){
-                            neighbor_idx = idx - 1;
-                            accumulated_A_p_air_neighbor += A_coeff * (flags[neighbor_idx] == 0 ? pCurr[neighbor_idx] : p_curr_at_idx);
-                        }else { accumulated_A_p_air_neighbor += A_coeff * p_curr_at_idx; }
-                        accumulated_B_p_curr += B_coeff * p_curr_at_idx;
-                    }
-
-                    // y direction
-                    if (normal_code & K_NORMAL_POS_Y) {
-                        active_normal_components++;
-                        if (y + 1 < d_Ny) {
-                            neighbor_idx = idx + d_Nx;
-                            accumulated_A_p_air_neighbor += A_coeff * (flags[neighbor_idx] == 0 ? pCurr[neighbor_idx] : p_curr_at_idx);
-                        } else { accumulated_A_p_air_neighbor += A_coeff * p_curr_at_idx; }
-                        accumulated_B_p_curr += B_coeff * p_curr_at_idx;
-                    }
-                    if (normal_code & K_NORMAL_NEG_Y) {
-                        active_normal_components++;
-                        if (y - 1 >= 0) {
-                            neighbor_idx = idx - d_Nx;
-                            accumulated_A_p_air_neighbor += A_coeff * (flags[neighbor_idx] == 0 ? pCurr[neighbor_idx] : p_curr_at_idx);
-                        } else { accumulated_A_p_air_neighbor += A_coeff * p_curr_at_idx; }
-                        accumulated_B_p_curr += B_coeff * p_curr_at_idx;
-                    }
-
-                    // z direction
-                    size_t stride_z = (size_t)d_Nx * d_Ny;
-                    if (normal_code & K_NORMAL_POS_Z) {
-                        active_normal_components++;
-                        if (z + 1 < d_Nz) {
-                            neighbor_idx = idx + stride_z;
-                            accumulated_A_p_air_neighbor += A_coeff * (flags[neighbor_idx] == 0 ? pCurr[neighbor_idx] : p_curr_at_idx);
-                        } else { accumulated_A_p_air_neighbor += A_coeff * p_curr_at_idx; }
-                        accumulated_B_p_curr += B_coeff * p_curr_at_idx;
-                    }
-                    if (normal_code & K_NORMAL_NEG_Z) {
-                        active_normal_components++;
-                        if (z - 1 >= 0) {
-                            neighbor_idx = idx - stride_z;
-                            accumulated_A_p_air_neighbor += A_coeff * (flags[neighbor_idx] == 0 ? pCurr[neighbor_idx] : p_curr_at_idx);
-                        } else { accumulated_A_p_air_neighbor += A_coeff * p_curr_at_idx; }
-                        accumulated_B_p_curr += B_coeff * p_curr_at_idx;
-                    }
-
-                    if(active_normal_components > 0){
-                        pNext[idx] = (accumulated_B_p_curr + accumulated_A_p_air_neighbor) / (float)active_normal_components;
-                    }
-                }
-            }
-        }
+        // float l2 = (d_c_sound * d_dt / d_dx) * (d_c_sound * d_dt / d_dx);
+        // float a1 = 2.f - 6.f * l2;
+        // float a2 = l2;
+        // float partial = a1 * pCurr[idx] - pPrev[idx];
+        // partial += a2 * pCurr[idx + 1];
+        // partial += a2 * pCurr[idx - 1];
+        // partial += a2 * pCurr[idx + d_Nx];
+        // partial += a2 * pCurr[idx - d_Nx];
+        // partial += a2 * pCurr[idx + (size_t)d_Nx * d_Ny];
+        // partial += a2 * pCurr[idx - (size_t)d_Nx * d_Ny];
+        // pNext[idx] = partial;
     }
 }
 
 __global__ void fdtd_kernel_boundary_biquad(
-                            const float*    __restrict pCurr,
-                            float*    __restrict pNext,
-                            float*   __restrict pPrev,
-                             float*    filter_coeffs[5],
-                            const size_t    __restrict num_filter_sections,
-                            float* (*filter_states[6])[4],
-                            const uint8_t*  __restrict flags,
-                            const uint8_t*  __restrict normals,
-                            const uint32_t* __restrict boundary_indices)
+    const float *__restrict pCurr,
+    float *__restrict pNext,
+    float *__restrict pPrev,
+    float *filter_coeffs[5],
+    const size_t __restrict num_filter_sections,
+    float * __restrict filter_states,
+    const uint8_t *__restrict flags,
+    const uint8_t *__restrict normals,
+    const uint32_t *__restrict boundary_indices)
 {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     size_t stride_z = (size_t)d_Nx * d_Ny;
-    if(i < d_num_boundary_indices){
+    if (i < d_num_boundary_indices)
+    {
         uint32_t idx = boundary_indices[i];
-        int x  = idx % d_Nx;
-        int y  = (idx / d_Nx) % d_Ny;
-        int z  = (idx / (d_Nx * d_Ny)) % d_Nz;
-        float p_c = pCurr[idx];
+        int x = idx % d_Nx;
+        int y = (idx / d_Nx) % d_Ny;
+        int z = (idx / (d_Nx * d_Ny)) % d_Nz;
         size_t material_idx = 0; // Assuming a single material for simplicity (for now)
 
         float sum = 0.f;
         size_t num_active_components = 0;
 
-        float driving_pressure_change = pCurr[idx] - pPrev[idx];
-        
-        // POSITIVE X
-        if(normals[idx] & K_NORMAL_POS_X){
-            float inc = (x + 1 < d_Nx && flags[idx + 1] == 0) ? pCurr[idx + 1] : p_c;
-            float section_in = driving_pressure_change;
-            float section_out = inc;
-            float filter_sum = 0.f;
-            for(int s = 0; s < num_filter_sections; ++s){
-                size_t section_idx = i * num_filter_sections + s;
-                float* x1 = &(*filter_states[0])[0][section_idx];
-                float* x2 = &(*filter_states[0])[1][section_idx];
-                float* y1 = &(*filter_states[0])[2][section_idx];
-                float* y2 = &(*filter_states[0])[3][section_idx];
-
-                section_out = filter_coeffs[material_idx][0] * section_in // b0
-                            + filter_coeffs[material_idx][1] * (*x1)      // b1
-                            + filter_coeffs[material_idx][2] * (*x2)      // b2
-                            - filter_coeffs[material_idx][3] * (*y1)      // a1
-                            - filter_coeffs[material_idx][4] * (*y2);     // a2
-                
-                // Update filter states
-                *x2 = *x1;
-                *x1 = section_in;
-                *y2 = *y1;
-                *y1 = section_out;
-                filter_sum += section_out;
-                //section_in = section_out; // Prepare for next section
-            }
-            sum += filter_sum;
-            num_active_components++;
+        float summed_differences = 0.f;
+        float dif = pCurr[idx] - pPrev[idx]; // Temporal derivative at boundary node [idx]
+        for (size_t section = 0; section < 1; ++section)
+        {
+            size_t state_offset = (i * 4);
+            float* state = &filter_states[state_offset];
+            float input = dif;
+            float output = filter_coeffs[0][material_idx] * input + filter_coeffs[1][material_idx] * state[0] + filter_coeffs[2][material_idx] * state[1] - filter_coeffs[3][material_idx] * state[2] - filter_coeffs[4][material_idx] * state[3];
+            // Update state
+            state[1] = state[0];
+            state[0] = input;
+            state[3] = state[2];
+            state[2] = output;
+            summed_differences += output;
         }
 
-        // NEGATIVE X
-        if(normals[idx] & K_NORMAL_NEG_X){
-            float inc = (x - 1 < d_Nx && flags[idx - 1] == 0) ? pCurr[idx - 1] : p_c;
-            float section_in = driving_pressure_change;
-            float section_out = inc;
-            float filter_sum = 0.f;
+        const float UNKNOWN_CONSTANT = (d_c_sound * d_dt) / d_dx * 0.95f;
+        pNext[idx] = pNext[idx] - UNKNOWN_CONSTANT * (summed_differences * 0.9 + dif * 0.1f) * 0.25f;
+    }
+}
 
-            for(int s = 0; s < num_filter_sections; ++s){
-                size_t section_idx = i * num_filter_sections + s;
-                float* x1 = &(*filter_states[1])[0][section_idx];
-                float* x2 = &(*filter_states[1])[1][section_idx];
-                float* y1 = &(*filter_states[1])[2][section_idx];
-                float* y2 = &(*filter_states[1])[3][section_idx];
-
-                section_out = filter_coeffs[material_idx][0] * section_in // b0
-                            + filter_coeffs[material_idx][1] * (*x1)      // b1
-                            + filter_coeffs[material_idx][2] * (*x2)      // b2
-                            - filter_coeffs[material_idx][3] * (*y1)      // a1
-                            - filter_coeffs[material_idx][4] * (*y2);     // a2
-                
-                // Update filter states
-                *x2 = *x1;
-                *x1 = section_in;
-                *y2 = *y1;
-                *y1 = section_out;
-
-                filter_sum += section_out;
-                //section_in = section_out; // Prepare for next section
-            }
-            sum += filter_sum;
-            num_active_components++;
-        }
-
-        // POSITIVE Y
-        if(normals[idx] & K_NORMAL_POS_Y){
-            float inc = (y + 1 < d_Ny && flags[idx + d_Nx] == 0) ? pCurr[idx + d_Nx] : p_c;
-            float section_in = driving_pressure_change;
-            float section_out = inc;
-            float filter_sum = 0.f;
-            for(int s = 0; s < num_filter_sections; ++s){
-                size_t section_idx = i * num_filter_sections + s;
-                float* x1 = &(*filter_states[2])[0][section_idx];
-                float* x2 = &(*filter_states[2])[1][section_idx];
-                float* y1 = &(*filter_states[2])[2][section_idx];
-                float* y2 = &(*filter_states[2])[3][section_idx];
-
-                section_out = filter_coeffs[material_idx][0] * section_in // b0
-                            + filter_coeffs[material_idx][1] * (*x1)      // b1
-                            + filter_coeffs[material_idx][2] * (*x2)      // b2
-                            - filter_coeffs[material_idx][3] * (*y1)      // a1
-                            - filter_coeffs[material_idx][4] * (*y2);     // a2
-
-                // Update filter states
-                *x2 = *x1;
-                *x1 = section_in;
-                *y2 = *y1;
-                *y1 = section_out;
-
-                filter_sum += section_out;
-                //section_in = section_out; // Prepare for next section
-            }
-            sum += filter_sum;
-            num_active_components++;
-        }
-
-        // NEGATIVE Y
-        if(normals[idx] & K_NORMAL_NEG_Y){
-            float inc = (y - 1 >= 0 && flags[idx - d_Nx] == 0) ? pCurr[idx - d_Nx] : p_c;
-            float section_in = driving_pressure_change;
-            float section_out = inc;
-            float filter_sum = 0.f;
-
-            for(int s = 0; s < num_filter_sections; ++s){
-                size_t section_idx = i * num_filter_sections + s;
-                float* x1 = &(*filter_states[3])[0][section_idx];
-                float* x2 = &(*filter_states[3])[1][section_idx];
-                float* y1 = &(*filter_states[3])[2][section_idx];
-                float* y2 = &(*filter_states[3])[3][section_idx];
-
-                section_out = filter_coeffs[material_idx][0] * section_in // b0
-                            + filter_coeffs[material_idx][1] * (*x1)      // b1
-                            + filter_coeffs[material_idx][2] * (*x2)      // b2
-                            - filter_coeffs[material_idx][3] * (*y1)      // a1
-                            - filter_coeffs[material_idx][4] * (*y2);     // a2
-                
-                // Update filter states
-                *x2 = *x1;
-                *x1 = section_in;
-                *y2 = *y1;
-                *y1 = section_out;
-
-                filter_sum += section_out;
-                //section_in = section_out; // Prepare for next section
-            }
-            sum += filter_sum;
-            num_active_components++;
-        }
-
-        // POSITIVE Z
-        if(normals[idx] & K_NORMAL_POS_Z){
-            float inc = (z + 1 < d_Nz && flags[idx + d_Nx * d_Ny] == 0) ? pCurr[idx + d_Nx * d_Ny] : p_c;
-            float section_in = driving_pressure_change;
-            float section_out = inc;
-            float filter_sum = 0.f;
-            for(int s = 0; s < num_filter_sections; ++s){
-                size_t section_idx = i * num_filter_sections + s;
-                float* x1 = &(*filter_states[4])[0][section_idx];
-                float* x2 = &(*filter_states[4])[1][section_idx];
-                float* y1 = &(*filter_states[4])[2][section_idx];
-                float* y2 = &(*filter_states[4])[3][section_idx];
-
-                section_out = filter_coeffs[material_idx][0] * section_in // b0
-                            + filter_coeffs[material_idx][1] * (*x1)      // b1
-                            + filter_coeffs[material_idx][2] * (*x2)      // b2
-                            - filter_coeffs[material_idx][3] * (*y1)      // a1
-                            - filter_coeffs[material_idx][4] * (*y2);     // a2
-
-                // Update filter states
-                *x2 = *x1;
-                *x1 = section_in;
-                *y2 = *y1;
-                *y1 = section_out;
-
-                filter_sum += section_out;
-                //section_in = section_out; // Prepare for next section
-            }
-            sum += filter_sum;
-            num_active_components++;
-        }
-
-        // NEGATIVE Z
-        if(normals[idx] & K_NORMAL_NEG_Z){
-            float inc = (z - 1 >= 0 && flags[idx - d_Nx * d_Ny] == 0) ? pCurr[idx - d_Nx * d_Ny] : p_c;
-            float section_in = driving_pressure_change;
-            float section_out = inc;
-            float filter_sum = 0.f;
-            for(int s = 0; s < num_filter_sections; ++s){
-                size_t section_idx = i * num_filter_sections + s;
-                float* x1 = &(*filter_states[5])[0][section_idx];
-                float* x2 = &(*filter_states[5])[1][section_idx];
-                float* y1 = &(*filter_states[5])[2][section_idx];
-                float* y2 = &(*filter_states[5])[3][section_idx];
-
-                section_out = filter_coeffs[material_idx][0] * section_in // b0
-                            + filter_coeffs[material_idx][1] * (*x1)      // b1
-                            + filter_coeffs[material_idx][2] * (*x2)      // b2
-                            - filter_coeffs[material_idx][3] * (*y1)      // a1
-                            - filter_coeffs[material_idx][4] * (*y2);     // a2
-
-                // Update filter states
-                *x2 = *x1;
-                *x1 = section_in;
-                *y2 = *y1;
-                *y1 = section_out;
-
-                filter_sum += section_out;
-                //section_in = section_out; // Prepare for next section
-            }
-            sum += filter_sum;
-            num_active_components++;
-        }
-
-        if(num_active_components > 0){
-            pNext[idx] = pNext[idx] - (434.f * d_dt / d_dx) * sum;
-        } else {
-            pNext[idx] = 0.f; // This should never occur, but just in case.
-        }
+__global__ void fdtd_kernel_rigid_walls(const float* __restrict pCurr,
+                                        float* __restrict pNext,
+                                        float* __restrict pPrev,
+                                        const uint8_t* __restrict flags,
+                                        const uint8_t* __restrict normals,
+                                        const uint32_t* __restrict boundary_indices)
+{
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    if(i < d_num_boundary_indices){
+        size_t stride_z = (size_t)d_Nx * d_Ny;
+        uint32_t idx = boundary_indices[i];
+        uint8_t v = normals[idx];
+        uint8_t num_neighbors = 0;
+        for(num_neighbors = 0; v; num_neighbors++) v &= v - 1; // Count set bits
+        uint8_t adj = normals[idx];
+        float l2 = (d_c_sound * d_dt / d_dx) * (d_c_sound * d_dt / d_dx);
+        float b1 = (2.f - l2 * (float)num_neighbors);
+        float b2 = l2;
+        float partial = b1 * pCurr[idx] - pPrev[idx];
+        partial += b2 * ((adj & K_NORMAL_POS_X) ? 1.f : 0.f) * pCurr[idx + 1];
+        partial += b2 * ((adj & K_NORMAL_NEG_X) ? 1.f : 0.f) * pCurr[idx - 1];
+        partial += b2 * ((adj & K_NORMAL_POS_Y) ? 1.f : 0.f) * pCurr[idx + d_Nx];
+        partial += b2 * ((adj & K_NORMAL_NEG_Y) ? 1.f : 0.f) * pCurr[idx - d_Nx];
+        partial += b2 * ((adj & K_NORMAL_POS_Z) ? 1.f : 0.f) * pCurr[idx + stride_z];
+        partial += b2 * ((adj & K_NORMAL_NEG_Z) ? 1.f : 0.f) * pCurr[idx - stride_z];
+        pNext[idx] = partial;
 
     }
-
-
-
 }
 
 extern "C"
@@ -409,7 +180,7 @@ extern "C"
     bool fdtd_gpu_step(VectorSpace *space, float h, unsigned int step)
     {
         Grid &g = space->getGrid(); // host meta
-        //const std::size_t N = g.Nx * g.Ny * g.Nz;
+        // const std::size_t N = g.Nx * g.Ny * g.Nz;
 
         /* one‑time constant upload (cache inside space) -------------------- */
         static bool constantsUploaded = false;
@@ -437,7 +208,8 @@ extern "C"
         }
 
         float source_value = 0.0f;
-        if(step < 10){
+        if (step < 10)
+        {
             source_value = 10.f;
         }
 
@@ -467,18 +239,19 @@ extern "C"
         // //     float fade_out_fraction = (float)fade_out_index / (float)fade_out_steps;
         // //     source_value *= fade_out_fraction; // Scale the source value
         // // }
-        
+
         // source_value *= 2.f; // Temporary amplification for testing
 
         /* upload source value to device ------------------------------------ */
-        if (step == 0) {
+        if (step == 0)
+        {
             cudaMemcpyToSymbol(d_source_value, &source_value, sizeof(float));
         }
-        else {
+        else
+        {
             // Update source value for subsequent steps
             cudaMemcpyToSymbol(d_source_value, &source_value, sizeof(float), 0, cudaMemcpyHostToDevice);
         }
-
 
         /* device pointers held inside VectorSpace -------------------------- */
         float *d_prev = g.d_p_prev;
@@ -487,6 +260,7 @@ extern "C"
         uint8_t *d_flags = g.d_flags;
         float *d_zeta = g.d_pZeta;
         uint8_t *d_normals = g.d_normals;
+        uint32_t *d_boundary_indices = g.d_boundary_indices;
 
         /* launch geometry --------------------------------------------------- */
         dim3 B(16, 4, 4);
@@ -496,13 +270,19 @@ extern "C"
 
         size_t threads_per_block_boundary = 256;
         size_t num_blocks_boundary = (g.boundary_indices_size + threads_per_block_boundary - 1) / threads_per_block_boundary;
-        fdtd_kernel<<<G, B>>>(d_prev, d_curr, d_next, d_flags);
-        //fdtd_kernel_boundary<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_zeta, d_next, d_flags, d_normals, g.d_boundary_indices);
-        fdtd_kernel_boundary_biquad<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, g.d_biquad_coeffs_ptr, g.num_filter_sections, g.d_biquad_states, d_flags, d_normals, g.d_boundary_indices);
+        fdtd_kernel<<<G, B>>>(d_prev, d_curr, d_next, d_flags, d_normals);
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+        //fdtd_kernel_rigid_walls<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, d_flags, d_normals, d_boundary_indices);
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+        //fdtd_kernel_boundary_biquad<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, g.d_biquad_coeffs_ptr, g.num_filter_sections, g.d_biquad_state_ptr, d_flags, d_normals, d_boundary_indices);
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
 
         // CUDA_CHECK(cudaGetLastError());        // macro or manual check
         // CUDA_CHECK(cudaDeviceSynchronize());   // catches bad constants immediately
-        cudaDeviceSynchronize();   // ensure completion before we copy
+        cudaDeviceSynchronize(); // ensure completion before we copy
 
         // /* swap pointers for next iteration ---------------------------------- */
         std::swap(g.d_p_prev, g.d_p_curr);
@@ -517,19 +297,20 @@ extern "C"
 
         constexpr size_t RMS_SIZE = 100;
         constexpr size_t MIN_RMS_CHECK_STEP = 3000;
-        if(step > MIN_RMS_CHECK_STEP){
-            //Calculate RMS of last 30 steps
+        if (step > MIN_RMS_CHECK_STEP)
+        {
+            // Calculate RMS of last 30 steps
             float sum = 0.0f;
-            for(size_t i = step - RMS_SIZE; i < step; ++i){
+            for (size_t i = step - RMS_SIZE; i < step; ++i)
+            {
                 sum += g.p_audio_output[i] * g.p_audio_output[i];
             }
             float rms = std::sqrt(sum / (float)RMS_SIZE);
-            if(rms < 0.004f){
+            if (rms < 0.0009f)
+            {
                 return false;
             }
         }
-         return true; // continue simulation
+        return true; // continue simulation
     }
-
-
 }

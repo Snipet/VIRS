@@ -114,7 +114,10 @@ void VectorSpace::layerToImage(const std::string& out, std::size_t layer)
 				unsigned char red  = 0;
 				unsigned char blue = 0;
 				unsigned char green = 0;
-				if(flag == 1 || flag == 3) {
+				if(flag == 1) {
+					green = 100;
+				}
+				if(flag == 2) {
 					green = 255;
 				}
 				// }else if (flag == 2) {
