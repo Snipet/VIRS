@@ -204,13 +204,28 @@ void allocFilterCoeffs(VectorSpace* space, const size_t num_materials){
 void uploadFilterCoeffsToGPU(VectorSpace* space) {
 #ifdef VIRS_WITH_CUDA
     std::cout << "Uploading filter coefficients to GPU." << std::endl;
-
+    cudaError_t err;
     Grid& grid = space->getGrid();
-    cudaMemcpy(grid.d_biquad_a1, grid.biquad_a1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
-    cudaMemcpy(grid.d_biquad_a2, grid.biquad_a2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
-    cudaMemcpy(grid.d_biquad_b0, grid.biquad_b0, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
-    cudaMemcpy(grid.d_biquad_b1, grid.biquad_b1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
-    cudaMemcpy(grid.d_biquad_b2, grid.biquad_b2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    err = cudaMemcpy(grid.d_biquad_a1, grid.biquad_a1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    if(err != cudaSuccess){
+	    std::cout << "Error with moving coeff a1" << std::endl;
+    }
+    err = cudaMemcpy(grid.d_biquad_a2, grid.biquad_a2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    if(err != cudaSuccess){
+	    std::cout << "Error with moving coeff a2" << std::endl;
+    }
+    err = cudaMemcpy(grid.d_biquad_b0, grid.biquad_b0, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    if(err != cudaSuccess){
+	    std::cout << "Error with moving coeff b0" << std::endl;
+    }
+    err = cudaMemcpy(grid.d_biquad_b1, grid.biquad_b1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    if(err != cudaSuccess){
+	    std::cout << "Error with moving coeff b1" << std::endl;
+    }
+    err = cudaMemcpy(grid.d_biquad_b2, grid.biquad_b2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    if(err != cudaSuccess){
+	    std::cout << "Error with moving coeff b2" << std::endl;
+    }
 #else
     std::cout << "No GPU support, skipping filter coefficients upload." << std::endl;
 #endif // VIRS_WITH_CUDA

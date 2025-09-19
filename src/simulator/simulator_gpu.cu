@@ -104,7 +104,7 @@ __global__ void fdtd_kernel_boundary_biquad(
     const float *__restrict pCurr,
     float *__restrict pNext,
     float *__restrict pPrev,
-    float *filter_coeffs[5],
+    float *__restrict filter_coeffs[5],
     const size_t __restrict num_filter_sections,
     float * __restrict filter_states,
     const uint8_t *__restrict flags,
@@ -133,15 +133,16 @@ __global__ void fdtd_kernel_boundary_biquad(
             float input = dif;
             float output = filter_coeffs[0][material_idx] * input + filter_coeffs[1][material_idx] * state[0] + filter_coeffs[2][material_idx] * state[1] - filter_coeffs[3][material_idx] * state[2] - filter_coeffs[4][material_idx] * state[3];
             // Update state
+	    //output = 0.f;
             state[1] = state[0];
             state[0] = input;
             state[3] = state[2];
             state[2] = output;
-            summed_differences += output;
+            //summed_differences += output;
         }
 
-        const float UNKNOWN_CONSTANT = (d_c_sound * d_dt) / d_dx * 0.95f;
-        pNext[idx] = pNext[idx] - UNKNOWN_CONSTANT * (summed_differences * 0.9 + dif * 0.1f) * 0.25f;
+        //const float UNKNOWN_CONSTANT = (d_c_sound * d_dt) / d_dx * 0.95f;
+        //pNext[idx] = pNext[idx] - UNKNOWN_CONSTANT * (summed_differences * 0.9 + dif * 0.1f) * 0.25f;
     }
 }
 
