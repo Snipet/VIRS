@@ -1,0 +1,13 @@
+{
+    "files": {
+        "meshfile": "../assets/room_with_source2.obj",
+        "audiofile": "../assets/impulse_response.wav"
+    },
+    "simulation":{
+        "num_simulation_steps": 100000,
+        "should_save_layer_images": true,
+        "image_save_interval": 100,
+        "output_images_dir": "output",
+        "output_layer": 220
+    }
+}

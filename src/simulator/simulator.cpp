@@ -440,7 +440,7 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
                             {
                                 // Wall
                                 grid.flags[idx] = 1;
-                                grid.p_absorb[idx] = 0.f;
+                                //grid.p_absorb[idx] = 0.f;
                             }
                             else if (material_id == 1)
                             {
@@ -459,8 +459,8 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
         uint8_t *tmp_flags = new uint8_t[grid.size];
         std::memcpy(tmp_flags, grid.flags, grid.size * sizeof(uint8_t));
 
-        float *tmp_p_absorb = new float[grid.size];
-        std::memcpy(tmp_p_absorb, grid.p_absorb, grid.size * sizeof(float));
+        //float *tmp_p_absorb = new float[grid.size];
+        //std::memcpy(tmp_p_absorb, grid.p_absorb, grid.size * sizeof(float));
 
         const int absorptionWidth = 3;
         const float absorptionEpsilon = 1.f / static_cast<float>(absorptionWidth);
@@ -586,7 +586,7 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
 
         grid.boundary_indices_size = boundary_count;
 
-        // Calculate pZeta and set boundary indices
+        // set boundary indices
         grid.boundary_indices = new uint32_t[grid.boundary_indices_size];
         size_t boundary_index = 0;
 
@@ -604,34 +604,34 @@ void Simulator::loadObj(const std::string &path, bool forSimulation)
             }
         }
 
-        float target_Rp_magnitude = 0.93f;
-        float target_zeta = (1.f + target_Rp_magnitude) / (1.f - target_Rp_magnitude);
+        //float target_Rp_magnitude = 0.93f;
+        //float target_zeta = (1.f + target_Rp_magnitude) / (1.f - target_Rp_magnitude);
 
         allocFilterStates(vector_space.get());
 
         //std::cout << "Calculating pZeta..." << std::endl;
-        Logger::getInstance().log("Calculating pZeta...", LOGGER_NONCRITIAL_INFO);
-            for(int k = 1; k < grid.Nz - 1; ++k)
-        {
-            for(int j = 1; j < grid.Ny - 1; ++j)
-            {
-                for(int i = 1; i < grid.Nx - 1; ++i)
-                {
-                    size_t idx = grid.idx(i, j, k);
-                    if(grid.flags[idx] == 2){
-                        grid.pZeta[idx] = target_zeta;
+        // Logger::getInstance().log("Calculating pZeta...", LOGGER_NONCRITIAL_INFO);
+        //     for(int k = 1; k < grid.Nz - 1; ++k)
+        // {
+        //     for(int j = 1; j < grid.Ny - 1; ++j)
+        //     {
+        //         for(int i = 1; i < grid.Nx - 1; ++i)
+        //         {
+        //             size_t idx = grid.idx(i, j, k);
+        //             if(grid.flags[idx] == 2){
+        //                 grid.pZeta[idx] = target_zeta;
                     
 
-                    }else{
-                        grid.pZeta[idx] = 0.f; // No pZeta for non-boundary cells
-                    }
-                }
-            }
-        }
+        //             }else{
+        //                 grid.pZeta[idx] = 0.f; // No pZeta for non-boundary cells
+        //             }
+        //         }
+        //     }
+        // }
 
         //std::cout << "pZeta calculated." << std::endl;
-        Logger::getInstance().log("pZeta calculated.", LOGGER_NONCRITIAL_INFO);
-        uploadPZetaToGPU(vector_space.get());
+        //Logger::getInstance().log("pZeta calculated.", LOGGER_NONCRITIAL_INFO);
+        //uploadPZetaToGPU(vector_space.get());
         uploadBoundaryIndicesToGPU(vector_space.get());
     }
 

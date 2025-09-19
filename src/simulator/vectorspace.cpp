@@ -109,7 +109,7 @@ void VectorSpace::layerToImage(const std::string& out, std::size_t layer)
         	}else{
 				float p = grid.p_curr[rowOff + i];
 				uint8_t flag = grid.flags[rowOff + i];
-				float absorb = grid.p_absorb[rowOff + i];
+				//float absorb = grid.p_absorb[rowOff + i];
 
 				unsigned char red  = 0;
 				unsigned char blue = 0;

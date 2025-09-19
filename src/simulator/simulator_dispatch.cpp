@@ -74,7 +74,7 @@ void updateGPUFromGrid(VectorSpace* space) {
     cudaMemcpy(space->getGrid().d_p_next, space->getGrid().p_next, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
     cudaMemcpy(space->getGrid().d_p_prev, space->getGrid().p_prev, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
     cudaMemcpy(space->getGrid().d_flags, space->getGrid().flags, sizeof(uint8_t) * space->getGrid().size, cudaMemcpyHostToDevice);
-    cudaMemcpy(space->getGrid().d_p_absorb, space->getGrid().p_absorb, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
+    //cudaMemcpy(space->getGrid().d_p_absorb, space->getGrid().p_absorb, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
     #else
     std::cout << "No GPU support, skipping update." << std::endl;
     #endif
@@ -109,12 +109,12 @@ void uploadNormalsToGPU(VectorSpace* space) {
 }
 
 void uploadPZetaToGPU(VectorSpace* space) {
-    #ifdef VIRS_WITH_CUDA
-    std::cout << "Uploading pZeta to GPU." << std::endl;
-    cudaMemcpy(space->getGrid().d_pZeta, space->getGrid().pZeta, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
-    #else
-    std::cout << "No GPU support, skipping pZeta upload." << std::endl;
-    #endif
+    // #ifdef VIRS_WITH_CUDA
+    // std::cout << "Uploading pZeta to GPU." << std::endl;
+    // cudaMemcpy(space->getGrid().d_pZeta, space->getGrid().pZeta, sizeof(float) * space->getGrid().size, cudaMemcpyHostToDevice);
+    // #else
+    // std::cout << "No GPU support, skipping pZeta upload." << std::endl;
+    // #endif
 }
 
 void uploadBoundaryIndicesToGPU(VectorSpace* space) {

@@ -12,7 +12,7 @@ void fdtd_cpu_setup(VectorSpace* space) {
 	grid.p_prev = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
 	grid.p_temp = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
 	grid.flags = static_cast<uint8_t*>(aligned_alloc(ALIGN, sizeof(uint8_t) * grid.size));
-	grid.p_absorb = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
+	//grid.p_absorb = static_cast<float*>(aligned_alloc(ALIGN, sizeof(float) * grid.size));
 	
 	std::cout << "Initializing VectorSpace with dimensions: "
 	          << grid.Nx << " x " << grid.Ny << " x " << grid.Nz
@@ -23,7 +23,7 @@ void fdtd_cpu_setup(VectorSpace* space) {
 		grid.p_prev[i] = 0.0f;
 		grid.p_temp[i] = 0.0f;
 		grid.flags[i] = 0; // Initialize flags to zero
-		grid.p_absorb[i] = 0.0f; // Initialize p_absorb to zero
+		//grid.p_absorb[i] = 0.0f; // Initialize p_absorb to zero
 	}
 	space->resetStopwatch();
 	std::cout << "VectorSpace initialized." << std::endl;
@@ -41,13 +41,13 @@ void fdtd_cpu_cleanup(VectorSpace* space) {
 	delete[] grid.p_prev;
 	delete[] grid.p_temp;
 	delete[] grid.flags;
-	delete[] grid.p_absorb;
+	//delete[] grid.p_absorb;
 	grid.p_curr = nullptr;
 	grid.p_next = nullptr;
 	grid.p_prev = nullptr;
 	grid.p_temp = nullptr;
 	grid.flags = nullptr;
-	grid.p_absorb = nullptr;
+	//grid.p_absorb = nullptr;
 
 	std::cout << "CPU memory cleaned up successfully." << std::endl;
 }

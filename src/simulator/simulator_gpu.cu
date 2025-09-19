@@ -258,7 +258,7 @@ extern "C"
         float *d_curr = g.d_p_curr;
         float *d_next = g.d_p_next;
         uint8_t *d_flags = g.d_flags;
-        float *d_zeta = g.d_pZeta;
+        //float *d_zeta = g.d_pZeta;
         uint8_t *d_normals = g.d_normals;
         uint32_t *d_boundary_indices = g.d_boundary_indices;
 
@@ -276,7 +276,7 @@ extern "C"
         //fdtd_kernel_rigid_walls<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, d_flags, d_normals, d_boundary_indices);
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
-        //fdtd_kernel_boundary_biquad<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, g.d_biquad_coeffs_ptr, g.num_filter_sections, g.d_biquad_state_ptr, d_flags, d_normals, d_boundary_indices);
+        fdtd_kernel_boundary_biquad<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, g.d_biquad_coeffs_ptr, g.num_filter_sections, g.d_biquad_state_ptr, d_flags, d_normals, d_boundary_indices);
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
 

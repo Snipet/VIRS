@@ -58,8 +58,8 @@ struct Grid
 	uint8_t *flags;
 	uint8_t *d_flags;
 
-	float *p_absorb;
-	float *d_p_absorb;
+	// float *p_absorb;
+	// float *d_p_absorb;
 
 	float *p_source;
 	float *d_p_source;
@@ -67,8 +67,8 @@ struct Grid
 	uint8_t *normals;
 	uint8_t *d_normals;
 
-	float *pZeta;
-	float *d_pZeta;
+	//float *pZeta;
+	//float *d_pZeta;
 
 	size_t num_materials;
 	float *biquad_a1, *biquad_a2, *biquad_b0, *biquad_b1, *biquad_b2;
