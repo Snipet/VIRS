@@ -5,7 +5,7 @@
     },
     "simulation":{
         "num_simulation_steps": 100000,
-        "should_save_layer_images": true,
+        "should_save_layer_images": false,
         "image_save_interval": 100,
         "output_images_dir": "output",
         "output_layer": 220
