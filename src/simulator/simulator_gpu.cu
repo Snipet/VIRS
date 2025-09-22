@@ -101,15 +101,15 @@ __global__ void fdtd_kernel(const float *__restrict pPrev,
 }
 
 __global__ void fdtd_kernel_boundary_biquad(
-    const float *__restrict pCurr,
-    float *__restrict pNext,
-    float *__restrict pPrev,
-    float *__restrict filter_coeffs[5],
-    const size_t __restrict num_filter_sections,
-    float * __restrict filter_states,
-    const uint8_t *__restrict flags,
-    const uint8_t *__restrict normals,
-    const uint32_t *__restrict boundary_indices)
+    const float *pCurr,
+    float *pNext,
+    float *pPrev,
+    float *filter_coeffs[5],
+    const size_t num_filter_sections,
+    float *filter_states,
+    const uint8_t  *flags,
+    const uint8_t *normals,
+    const uint32_t *boundary_indices)
 {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     size_t stride_z = (size_t)d_Nx * d_Ny;
@@ -126,20 +126,21 @@ __global__ void fdtd_kernel_boundary_biquad(
 
         float summed_differences = 0.f;
         float dif = pCurr[idx] - pPrev[idx]; // Temporal derivative at boundary node [idx]
-        for (size_t section = 0; section < 1; ++section)
-        {
-            size_t state_offset = (i * 4);
-            float* state = &filter_states[state_offset];
-            float input = dif;
-            float output = filter_coeffs[0][material_idx] * input + filter_coeffs[1][material_idx] * state[0] + filter_coeffs[2][material_idx] * state[1] - filter_coeffs[3][material_idx] * state[2] - filter_coeffs[4][material_idx] * state[3];
+	filter_states[0] = filter_coeffs[0][0];
+        //for (size_t section = 0; section < 1; ++section)
+        //{
+            //size_t state_offset = (i * 4);
+            //float* state = &filter_states[state_offset];
+            //float input = dif;
+            //float output = filter_coeffs[0][material_idx] * input + filter_coeffs[1][material_idx] * state[0] + filter_coeffs[2][material_idx] * state[1] - filter_coeffs[3][material_idx] * state[2] - filter_coeffs[4][material_idx] * state[3];
             // Update state
 	    //output = 0.f;
-            state[1] = state[0];
-            state[0] = input;
-            state[3] = state[2];
-            state[2] = output;
+            //state[1] = state[0];
+            //state[0] = input;
+            //state[3] = state[2];
+            //state[2] = output;
             //summed_differences += output;
-        }
+        //}
 
         //const float UNKNOWN_CONSTANT = (d_c_sound * d_dt) / d_dx * 0.95f;
         //pNext[idx] = pNext[idx] - UNKNOWN_CONSTANT * (summed_differences * 0.9 + dif * 0.1f) * 0.25f;

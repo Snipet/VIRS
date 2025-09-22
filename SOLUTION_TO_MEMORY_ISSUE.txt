@@ -1,0 +1,8 @@
+Hi future Sean,
+The issue with the illegal memory access when the simulation runs is 99% caused by the filter_coeffs pointer
+pointing aliasing the individual coeff arrays. The solution is to consolidate the filter coeffs into a single
+1D array. You will need to rewrite the coeffs allocation and copying, and you will need to calculate the coeff
+indexes instead of relying on the 2D array.
+
+Best wishes and good luck,
+Past Sean
