@@ -266,32 +266,36 @@ void fdtd_gpu_cleanup(VectorSpace* space) {
 
     //Clean up filter memory
     if(grid.allocated_filter_memory){
-        delete[] grid.biquad_a1;
-        delete[] grid.biquad_a2;
-        delete[] grid.biquad_b0;
-        delete[] grid.biquad_b1;
-        delete[] grid.biquad_b2;
-        delete[] grid.biquad_state_ptr;
+        //delete[] grid.biquad_a1;
+        //delete[] grid.biquad_a2;
+        //delete[] grid.biquad_b0;
+        //delete[] grid.biquad_b1;
+        //delete[] grid.biquad_b2;
+        delete[] grid.biquad_coeffs;
+	delete[] grid.biquad_state_ptr;
 
-        cudaFree(grid.d_biquad_a1);
-        cudaFree(grid.d_biquad_a2);
-        cudaFree(grid.d_biquad_b0);
-        cudaFree(grid.d_biquad_b1);
-        cudaFree(grid.d_biquad_b2);
-        cudaFree(grid.d_biquad_state_ptr);
+        //cudaFree(grid.d_biquad_a1);
+        //cudaFree(grid.d_biquad_a2);
+        //cudaFree(grid.d_biquad_b0);
+        //cudaFree(grid.d_biquad_b1);
+        //cudaFree(grid.d_biquad_b2);
+        //cudaFree(grid.d_biquad_state_ptr);
+	cudaFree(grid.d_biquad_coeffs);
 
-        grid.biquad_a1 = nullptr;
-        grid.biquad_a2 = nullptr;
-        grid.biquad_b0 = nullptr;
-        grid.biquad_b1 = nullptr;
-        grid.biquad_b2 = nullptr;
+        //grid.biquad_a1 = nullptr;
+        //grid.biquad_a2 = nullptr;
+        //grid.biquad_b0 = nullptr;
+        //grid.biquad_b1 = nullptr;
+        //grid.biquad_b2 = nullptr;
+	grid.biquad_coeffs = nullptr;
         grid.biquad_state_ptr = nullptr;
 
-        grid.d_biquad_a1 = nullptr;
-        grid.d_biquad_a2 = nullptr;
-        grid.d_biquad_b0 = nullptr;
-        grid.d_biquad_b1 = nullptr;
-        grid.d_biquad_b2 = nullptr;
+        //grid.d_biquad_a1 = nullptr;
+        //grid.d_biquad_a2 = nullptr;
+        //grid.d_biquad_b0 = nullptr;
+        //grid.d_biquad_b1 = nullptr;
+        //grid.d_biquad_b2 = nullptr;
+	grid.d_biquad_coeffs = nullptr;
         grid.d_biquad_state_ptr = nullptr;
         
         grid.allocated_filter_memory = false;

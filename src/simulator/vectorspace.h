@@ -73,8 +73,9 @@ struct Grid
 	size_t num_materials;
 	float *biquad_a1, *biquad_a2, *biquad_b0, *biquad_b1, *biquad_b2;
 	float *d_biquad_a1, *d_biquad_a2, *d_biquad_b0, *d_biquad_b1, *d_biquad_b2;
-	float *d_biquad_coeffs_ptr[5];
-
+	//float *d_biquad_coeffs_ptr[5];
+	float* d_biquad_coeffs; //ALL filter coeffs are inside a 1D array; GPU memory pointer
+	float* biquad_coeffs;   //CPU memory pointer
 	size_t num_filter_sections;
 
 	

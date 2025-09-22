@@ -166,72 +166,79 @@ void allocFilterCoeffs(VectorSpace* space, const size_t num_materials){
     Grid& grid = space->getGrid();
     grid.num_materials = num_materials;
 
+   
     // Allocate memory for filter coefficients on CPU
-    grid.biquad_a1 = new float[num_materials];
-    grid.biquad_a2 = new float[num_materials];
-    grid.biquad_b0 = new float[num_materials];
-    grid.biquad_b1 = new float[num_materials];
-    grid.biquad_b2 = new float[num_materials];
+    grid.biquad_coeffs = new float[num_materials * 5];
+    //grid.biquad_a1 = new float[num_materials];
+    //grid.biquad_a2 = new float[num_materials];
+    //grid.biquad_b0 = new float[num_materials];
+    //grid.biquad_b1 = new float[num_materials];
+    //grid.biquad_b2 = new float[num_materials];
 
     // Zero out the filter coefficients
-    std::memset(grid.biquad_a1, 0, sizeof(float) * num_materials);
-    std::memset(grid.biquad_a2, 0, sizeof(float) * num_materials);
-    std::memset(grid.biquad_b0, 0, sizeof(float) * num_materials);
-    std::memset(grid.biquad_b1, 0, sizeof(float) * num_materials);
-    std::memset(grid.biquad_b2, 0, sizeof(float) * num_materials);
+    std::memset(grid.biquad_coeffs, 0, sizeof(float) * 5 * num_materials);
+    //std::memset(grid.biquad_a1, 0, sizeof(float) * num_materials);
+    //std::memset(grid.biquad_a2, 0, sizeof(float) * num_materials);
+    //std::memset(grid.biquad_b0, 0, sizeof(float) * num_materials);
+    //std::memset(grid.biquad_b1, 0, sizeof(float) * num_materials);
+    //std::memset(grid.biquad_b2, 0, sizeof(float) * num_materials);
 
     
     // Allocate memory for filter coefficients on GPU
     cudaError_t err;
-    err = cudaMalloc((void**)&grid.d_biquad_a1, sizeof(float) * num_materials);
+    err = cudaMalloc((void**)&grid.d_biquad_coeffs, sizeof(float) * 5 * num_materials);
     if(err != cudaSuccess){
-	    std::cout << "Error allocating memory for coeff a1" << std::endl;
+	    std::cout << "Error allocating memory for biquad coeffs" << std::endl;
     }
-    err = cudaMalloc((void**)&grid.d_biquad_a2, sizeof(float) * num_materials);
-    if(err != cudaSuccess){
-	    std::cout << "Error allocating memory for coeff a2" << std::endl;
-    }
-    err = cudaMalloc((void**)&grid.d_biquad_b0, sizeof(float) * num_materials);
-    if(err != cudaSuccess){
-	    std::cout << "Error allocating memory for coeff b0" << std::endl;
-    }
-    err = cudaMalloc((void**)&grid.d_biquad_b1, sizeof(float) * num_materials);
-    if(err != cudaSuccess){
-	    std::cout << "Error allocating memory for coeff b1" << std::endl;
-    }
-    err = cudaMalloc((void**)&grid.d_biquad_b2, sizeof(float) * num_materials);
-    if(err != cudaSuccess){
-	    std::cout << "Error allocating memory for coeff b2" << std::endl;
-    }
+    //err = cudaMalloc((void**)&grid.d_biquad_a1, sizeof(float) * num_materials);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error allocating memory for coeff a1" << std::endl;
+    //}
+   // err = cudaMalloc((void**)&grid.d_biquad_a2, sizeof(float) * num_materials);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error allocating memory for coeff a2" << std::endl;
+    //}
+    //err = cudaMalloc((void**)&grid.d_biquad_b0, sizeof(float) * num_materials);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error allocating memory for coeff b0" << std::endl;
+    //}
+   // err = cudaMalloc((void**)&grid.d_biquad_b1, sizeof(float) * num_materials);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error allocating memory for coeff b1" << std::endl;
+    //}
+    //err = cudaMalloc((void**)&grid.d_biquad_b2, sizeof(float) * num_materials);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error allocating memory for coeff b2" << std::endl;
+    //}
     // Copy filter coefficients from CPU to GPU
-    err = cudaMemcpy(grid.d_biquad_a1, grid.biquad_a1, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
-    if(err != cudaSuccess){
-	    std::cout << "Error copying coeff a1 memory to GPU" << std::endl;
-    }
-    err = cudaMemcpy(grid.d_biquad_a2, grid.biquad_a2, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
-    if(err != cudaSuccess){
-	    std::cout << "Error copying coeff a1 memory to GPU" << std::endl;
-    }
-    err = cudaMemcpy(grid.d_biquad_b0, grid.biquad_b0, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
-    if(err != cudaSuccess){
-	    std::cout << "Error copying coeff b0 memory to GPU" << std::endl;
-    }
-    err = cudaMemcpy(grid.d_biquad_b1, grid.biquad_b1, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
-    if(err != cudaSuccess){
-	    std::cout << "Error copying coeff b1 memory to GPU" << std::endl;
-    }
-    err = cudaMemcpy(grid.d_biquad_b2, grid.biquad_b2, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
-    if(err != cudaSuccess){
-	    std::cout << "Error copying coeff b2 memory to GPU" << std::endl;
-    }
+    //err = cudaMemcpy(grid.d_biquad_a1, grid.biquad_a1, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error copying coeff a1 memory to GPU" << std::endl;
+    //}
+    //err = cudaMemcpy(grid.d_biquad_a2, grid.biquad_a2, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error copying coeff a1 memory to GPU" << std::endl;
+    //}
+   // err = cudaMemcpy(grid.d_biquad_b0, grid.biquad_b0, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error copying coeff b0 memory to GPU" << std::endl;
+    //}
+    //err = cudaMemcpy(grid.d_biquad_b1, grid.biquad_b1, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error copying coeff b1 memory to GPU" << std::endl;
+   // }
+    //err = cudaMemcpy(grid.d_biquad_b2, grid.biquad_b2, sizeof(float) * num_materials, cudaMemcpyHostToDevice);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error copying coeff b2 memory to GPU" << std::endl;
+    //}
 
 
     // Set up filter coefficient pointers
-    grid.d_biquad_coeffs_ptr[0] = grid.d_biquad_b0;
-    grid.d_biquad_coeffs_ptr[1] = grid.d_biquad_b1;
-    grid.d_biquad_coeffs_ptr[2] = grid.d_biquad_b2;
-    grid.d_biquad_coeffs_ptr[3] = grid.d_biquad_a1;
-    grid.d_biquad_coeffs_ptr[4] = grid.d_biquad_a2;
+    //grid.d_biquad_coeffs_ptr[0] = grid.d_biquad_b0;
+    //grid.d_biquad_coeffs_ptr[1] = grid.d_biquad_b1;
+    //grid.d_biquad_coeffs_ptr[2] = grid.d_biquad_b2;
+    //grid.d_biquad_coeffs_ptr[3] = grid.d_biquad_a1;
+    //grid.d_biquad_coeffs_ptr[4] = grid.d_biquad_a2;
 
 #else
     std::cout << "No GPU support, skipping filter coefficients allocation." << std::endl;
@@ -243,25 +250,29 @@ void uploadFilterCoeffsToGPU(VectorSpace* space) {
     std::cout << "Uploading filter coefficients to GPU." << std::endl;
     cudaError_t err;
     Grid& grid = space->getGrid();
-    err = cudaMemcpy(grid.d_biquad_a1, grid.biquad_a1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    //err = cudaMemcpy(grid.d_biquad_a1, grid.biquad_a1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+  //  if(err != cudaSuccess){
+//	    std::cout << "Error with moving coeff a1" << std::endl;
+    //}
+    //err = cudaMemcpy(grid.d_biquad_a2, grid.biquad_a2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    //if(err != cudaSuccess){
+//	    std::cout << "Error with moving coeff a2" << std::endl;
+   // }
+    //err = cudaMemcpy(grid.d_biquad_b0, grid.biquad_b0, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    //if(err != cudaSuccess){
+//	    std::cout << "Error with moving coeff b0" << std::endl;
+   // }
+    //err = cudaMemcpy(grid.d_biquad_b1, grid.biquad_b1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    //if(err != cudaSuccess){
+//	    std::cout << "Error with moving coeff b1" << std::endl;
+   // }
+    //err = cudaMemcpy(grid.d_biquad_b2, grid.biquad_b2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
+    //if(err != cudaSuccess){
+//	    std::cout << "Error with moving coeff b2" << std::endl;
+    //}
+    err = cudaMemcpy(grid.d_biquad_coeffs, grid.biquad_coeffs, sizeof(float) * 5 * grid.num_materials, cudaMemcpyHostToDevice);
     if(err != cudaSuccess){
-	    std::cout << "Error with moving coeff a1" << std::endl;
-    }
-    err = cudaMemcpy(grid.d_biquad_a2, grid.biquad_a2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
-    if(err != cudaSuccess){
-	    std::cout << "Error with moving coeff a2" << std::endl;
-    }
-    err = cudaMemcpy(grid.d_biquad_b0, grid.biquad_b0, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
-    if(err != cudaSuccess){
-	    std::cout << "Error with moving coeff b0" << std::endl;
-    }
-    err = cudaMemcpy(grid.d_biquad_b1, grid.biquad_b1, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
-    if(err != cudaSuccess){
-	    std::cout << "Error with moving coeff b1" << std::endl;
-    }
-    err = cudaMemcpy(grid.d_biquad_b2, grid.biquad_b2, sizeof(float) * grid.num_materials, cudaMemcpyHostToDevice);
-    if(err != cudaSuccess){
-	    std::cout << "Error with moving coeff b2" << std::endl;
+	    std::cout << "Error with moving filter coeffs to GPU" << std::endl;
     }
 #else
     std::cout << "No GPU support, skipping filter coefficients upload." << std::endl;

@@ -104,7 +104,7 @@ __global__ void fdtd_kernel_boundary_biquad(
     const float *pCurr,
     float *pNext,
     float *pPrev,
-    float *filter_coeffs[5],
+    float *filter_coeffs,
     const size_t num_filter_sections,
     float *filter_states,
     const uint8_t  *flags,
@@ -119,31 +119,31 @@ __global__ void fdtd_kernel_boundary_biquad(
         int x = idx % d_Nx;
         int y = (idx / d_Nx) % d_Ny;
         int z = (idx / (d_Nx * d_Ny)) % d_Nz;
-        size_t material_idx = 0; // Assuming a single material for simplicity (for now)
+        //size_t material_idx = 0; // Assuming a single material for simplicity (for now)
 
         float sum = 0.f;
         size_t num_active_components = 0;
 
         float summed_differences = 0.f;
         float dif = pCurr[idx] - pPrev[idx]; // Temporal derivative at boundary node [idx]
-	filter_states[0] = filter_coeffs[0][0];
-        //for (size_t section = 0; section < 1; ++section)
-        //{
-            //size_t state_offset = (i * 4);
-            //float* state = &filter_states[state_offset];
-            //float input = dif;
-            //float output = filter_coeffs[0][material_idx] * input + filter_coeffs[1][material_idx] * state[0] + filter_coeffs[2][material_idx] * state[1] - filter_coeffs[3][material_idx] * state[2] - filter_coeffs[4][material_idx] * state[3];
+        for (size_t section = 0; section < 1; ++section)
+        {
+	    size_t material_index = section * 5;
+            size_t state_offset = (i * 4);
+            float* state = &filter_states[state_offset];
+            float input = dif;
+            float output = filter_coeffs[0 + material_index] * input + filter_coeffs[1 + material_index] * state[0] + filter_coeffs[2 + material_index] * state[1] - filter_coeffs[3 + material_index] * state[2] - filter_coeffs[4 + material_index] * state[3];
             // Update state
-	    //output = 0.f;
-            //state[1] = state[0];
-            //state[0] = input;
-            //state[3] = state[2];
-            //state[2] = output;
-            //summed_differences += output;
-        //}
+	    output = 0.f;
+            state[1] = state[0];
+            state[0] = input;
+            state[3] = state[2];
+            state[2] = output;
+            summed_differences += output;
+        }
 
-        //const float UNKNOWN_CONSTANT = (d_c_sound * d_dt) / d_dx * 0.95f;
-        //pNext[idx] = pNext[idx] - UNKNOWN_CONSTANT * (summed_differences * 0.9 + dif * 0.1f) * 0.25f;
+        const float UNKNOWN_CONSTANT = (d_c_sound * d_dt) / d_dx * 0.95f;
+        pNext[idx] = pNext[idx] - UNKNOWN_CONSTANT * (summed_differences * 0.9 + dif * 0.1f) * 0.25f;
     }
 }
 
@@ -278,7 +278,7 @@ extern "C"
         //fdtd_kernel_rigid_walls<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, d_flags, d_normals, d_boundary_indices);
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
-        fdtd_kernel_boundary_biquad<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, g.d_biquad_coeffs_ptr, g.num_filter_sections, g.d_biquad_state_ptr, d_flags, d_normals, d_boundary_indices);
+        fdtd_kernel_boundary_biquad<<<num_blocks_boundary, threads_per_block_boundary>>>(d_curr, d_next, d_prev, g.d_biquad_coeffs, g.num_filter_sections, g.d_biquad_state_ptr, d_flags, d_normals, d_boundary_indices);
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
 

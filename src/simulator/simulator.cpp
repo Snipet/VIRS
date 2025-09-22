@@ -950,11 +950,11 @@ void Simulator::simulate()
     allocFilterCoeffs(vector_space.get(), 1);
 
     BiquadCoeffs coeffs = computeHighpassBiquad(simulation_fs, 440.f, 0.1f, 1.f);
-    grid.biquad_b0[0] = coeffs.b0;
-    grid.biquad_b1[0] = coeffs.b1;
-    grid.biquad_b2[0] = coeffs.b2;
-    grid.biquad_a1[0] = coeffs.a1;
-    grid.biquad_a2[0] = coeffs.a2;
+    grid.biquad_coeffs[0] = coeffs.b0;
+    grid.biquad_coeffs[1] = coeffs.b1;
+    grid.biquad_coeffs[2] = coeffs.b2;
+    grid.biquad_coeffs[3] = coeffs.a1;
+    grid.biquad_coeffs[4] = coeffs.a2;
 
     std::cout << "Filter coefficients: b0 = " << coeffs.b0 << ", b1 = " << coeffs.b1
               << ", b2 = " << coeffs.b2 << ", a1 = " << coeffs.a1 << ", a2 = " << coeffs.a2 << std::endl;
