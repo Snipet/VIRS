@@ -6,6 +6,8 @@
         gpuAssert((ans), __FILE__, __LINE__); \
     }
 
+#define TARGET_RMS 0.0009f
+
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true)
 {
     if (code != cudaSuccess)
@@ -134,7 +136,7 @@ __global__ void fdtd_kernel_boundary_biquad(
             float input = dif;
             float output = filter_coeffs[0 + material_index] * input + filter_coeffs[1 + material_index] * state[0] + filter_coeffs[2 + material_index] * state[1] - filter_coeffs[3 + material_index] * state[2] - filter_coeffs[4 + material_index] * state[3];
             // Update state
-	    output = 0.f;
+	    //output = 0.f;
             state[1] = state[0];
             state[0] = input;
             state[3] = state[2];
@@ -143,7 +145,7 @@ __global__ void fdtd_kernel_boundary_biquad(
         }
 
         const float UNKNOWN_CONSTANT = (d_c_sound * d_dt) / d_dx * 0.95f;
-        pNext[idx] = pNext[idx] - UNKNOWN_CONSTANT * (summed_differences * 0.9 + dif * 0.1f) * 0.25f;
+        pNext[idx] = pNext[idx] - UNKNOWN_CONSTANT * (summed_differences * 0.1 + dif * 0.9) * 0.4f;
     }
 }
 
@@ -296,6 +298,7 @@ extern "C"
         float pressure_value = 0.0f;
         cudaMemcpy(&pressure_value, g.d_p_curr + read_idx, sizeof(float), cudaMemcpyDeviceToHost);
         g.p_audio_output[step] = pressure_value;
+	
 
         constexpr size_t RMS_SIZE = 100;
         constexpr size_t MIN_RMS_CHECK_STEP = 3000;
@@ -308,7 +311,19 @@ extern "C"
                 sum += g.p_audio_output[i] * g.p_audio_output[i];
             }
             float rms = std::sqrt(sum / (float)RMS_SIZE);
-            if (rms < 0.0009f)
+	    //If this is the first valid RMS step, set rms_filter_state to initial RMS.
+	    if(step == MIN_RMS_CHECK_STEP + 1){
+		    g.rms_filter_state = rms;
+	    }else{
+		    //Run the calculated rms value through a crude low-pass filter to stabilize results
+		    float filter_g = 0.00008; //Arbitrary test value
+		    float vout = (filter_g * rms + g.rms_filter_state) / (filter_g + 1.f);
+		    g.rms_filter_state = 2.f * vout - g.rms_filter_state;
+		    rms = vout;
+	    }
+
+	    g.percent_to_target_RMS = TARGET_RMS / rms;
+            if (rms < TARGET_RMS)
             {
                 return false;
             }

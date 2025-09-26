@@ -15,7 +15,7 @@
 #endif
 
 #define MAX_AUDIO_FREQ 22050.f
-#define SIMULATION_OVERSAMPLING 1
+#define SIMULATION_OVERSAMPLING 2
 
 using namespace kfr;
 
@@ -920,7 +920,10 @@ std::string Simulator::toString()
 
 bool Simulator::doSimulationStep()
 {
-    std::cout << "\rPerforming simulation step " << simulation_step << "... Last step took: " << vector_space->stopwatch() << std::flush;
+    std::string simulation_step_duration = vector_space->stopwatch();
+    if(simulation_step % 50 == 0){
+    	std::cout << "\rPerforming simulation step " << simulation_step << "... Last step took: " << simulation_step_duration << "; percent to RMS:" << vector_space->getGrid().percent_to_target_RMS * 100.f << std::flush;
+    }
     // vector_space->computePressureStage();
     bool shouldContinue = fdtd_step(vector_space.get(), simulation_step);
     simulation_step++;
@@ -934,19 +937,21 @@ void Simulator::simulate()
     size_t centerx = grid.Nx / 2;
     size_t centery = grid.Ny / 2;
     size_t centerz = grid.Nz / 2;
-    float c = 343.f;           // Speed of sound in m/s
-    float h = vector_box_size; // Size of the grid cell in meters
-    float dt = 0.5f * h / (c * std::sqrt(3.f));
-    float c2_dt2 = c * c * dt * dt;
-    float gdt = 5.f * dt;
-    float inv_h2 = 1.f / (h * h);
+    double c = 343.0;           // Speed of sound in m/s
+    double h = vector_box_size; // Size of the grid cell in meters
+    double dt = 0.5 * h / (c * std::sqrt(3.0));
+    double c2_dt2 = c * c * dt * dt;
+    double gdt = 5.0 * dt;
+    double inv_h2 = 1.0 / (h * h);
     //std::cout << "Simulation parameters: c = " << c << " m/s, h = " << h << " m, dt = " << dt << " s, c2_dt2 = " << c2_dt2 << ", gdt = " << gdt << ", inv_h2 = " << inv_h2 << std::endl;
     Logger::getInstance().log("Simulation parameters: c = " + std::to_string(c) + " m/s, h = " + std::to_string(h) +
                                " m, dt = " + std::to_string(dt) + " s, c2_dt2 = " + std::to_string(c2_dt2) +
                                ", gdt = " + std::to_string(gdt) + ", inv_h2 = " + std::to_string(inv_h2),
                                LOGGER_NONCRITIAL_INFO);
     
-    const float simulation_fs = 1.f / dt;
+    const double simulation_fs = 1.f / dt;
+    std::cout << "Simulation sample rate: " << simulation_fs << std::endl;
+    
     allocFilterCoeffs(vector_space.get(), 1);
 
     BiquadCoeffs coeffs = computeHighpassBiquad(simulation_fs, 440.f, 0.1f, 1.f);
@@ -1024,17 +1029,17 @@ void Simulator::simulate()
     // We now have the raw pressures from the simulation. However, we must convert them to audio data.
     float *out_audio_data = vector_space->getGrid().p_audio_output;
     AudioFile<float> out_file;
-    unsigned int sample_rate = 48000 * 2;
+    unsigned int sample_rate = 48000;
     out_file.setSampleRate(sample_rate);
     out_file.setBitDepth(32);
     out_file.setNumChannels(1);
-    float length_seconds = (float)num_simulation_steps * dt;
-    size_t num_samples = (float)sample_rate * length_seconds;
+    double length_seconds = (double)num_simulation_steps * dt;
+    size_t num_samples = static_cast<size_t>((double)sample_rate * length_seconds);
     out_file.setNumSamplesPerChannel(num_samples);
     //std::cout << "Writing audio file with " << num_samples << " samples, length: " << length_seconds << " seconds." << std::endl;
     Logger::getInstance().log("Writing audio file with " + std::to_string(num_samples) + " samples, length: " + std::to_string(length_seconds) + " seconds.", LOGGER_CRITICAL_INFO);
 
-    float simulation_sample_rate = 1.f / dt;
+    double simulation_sample_rate = 1.f / dt;
     // for (int i = 0; i < num_samples; i++)
     // {
     //     float t = (float)i / (float)sample_rate;
@@ -1061,11 +1066,20 @@ void Simulator::simulate()
         audio_data[0][i] = xout[i];
     }
 
+    float max_amplitude = 0.f;
+    for(int i = 0; i < audio_data[0].size(); i++){
+	    if(std::abs(audio_data[0][i]) > max_amplitude){
+		    max_amplitude = std::abs(audio_data[0][i]);
+	    }
+    }
+    for(int i = 0; i < audio_data[0].size(); i++){
+	    audio_data[0][i] /= max_amplitude;
+    }
     out_file.setAudioBuffer(audio_data);
 
     out_file.save("output_audio.wav");
     //std::cout << "Audio data written to output_audio.wav" << std::endl;
-    Logger::getInstance().log("Audio data written to output_audio.wav", LOGGER_NONCRITIAL_INFO);
+    Logger::getInstance().log("Audio data written to output_audio.wav", LOGGER_NONCRITIAL_INFO); 
 
     // Now p_curr contains the final pressure values, we can render the final image
     // renderImageToFile({7.f, 7.f, 7.f}, "output/output_final.png", true);

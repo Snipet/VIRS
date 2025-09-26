@@ -58,22 +58,15 @@ struct Grid
 	uint8_t *flags;
 	uint8_t *d_flags;
 
-	// float *p_absorb;
-	// float *d_p_absorb;
-
 	float *p_source;
 	float *d_p_source;
 
 	uint8_t *normals;
 	uint8_t *d_normals;
 
-	//float *pZeta;
-	//float *d_pZeta;
-
 	size_t num_materials;
 	float *biquad_a1, *biquad_a2, *biquad_b0, *biquad_b1, *biquad_b2;
 	float *d_biquad_a1, *d_biquad_a2, *d_biquad_b0, *d_biquad_b1, *d_biquad_b2;
-	//float *d_biquad_coeffs_ptr[5];
 	float* d_biquad_coeffs; //ALL filter coeffs are inside a 1D array; GPU memory pointer
 	float* biquad_coeffs;   //CPU memory pointer
 	size_t num_filter_sections;
@@ -100,6 +93,10 @@ struct Grid
 
 	float* p_audio_output;
 	size_t p_audio_output_size;
+
+	//Simulation Statistics
+	float percent_to_target_RMS = 0.f; //Denotes percentage current RMS is to target RMS
+	float rms_filter_state;            //Filter state variable to stabilize rapid RMS movement. This ensures a random low peak won't abruptly end the simulation.
 
 	// Flattened index: z‑major for unit‑stride in innermost loop
 	inline size_t idx(size_t x, size_t y, size_t z)

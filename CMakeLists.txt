@@ -44,12 +44,18 @@ target_include_directories(VIRS PRIVATE
 target_compile_options(VIRS PRIVATE
     -Wall -Wextra -Wshadow -Wpedantic
     $<$<CONFIG:Release>:
-        -O3 -march=native -mavx512f -ffast-math -funroll-loops -fopenmp-simd
+        -O3 -march=native -ffast-math -funroll-loops -fopenmp-simd
     >
     $<$<CONFIG:Debug>:
         -O0 -g -fsanitize=address,undefined -fno-omit-frame-pointer
     >
 )
+
+#target_link_options(VIRS PRIVATE
+	# $<$<CONFIG:Debug>:
+    # -fsanitize=address,undefined
+	# >
+    #)
 
 
 if (VIRS_WITH_CUDA)
@@ -73,6 +79,9 @@ if (VIRS_WITH_CUDA)
 endif()
 
 file(GLOB_RECURSE EMBREE_LIBS third_party/embree/build/*.a)
+
+set(Boost_USE_DEBUG_LIBS OFF)
+set(Boost_USE_RELEASE_LIBS ON)
 
 find_package(TBB       REQUIRED)
 find_package(ZLIB      REQUIRED)
